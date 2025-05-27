@@ -206,8 +206,7 @@ exports.requestPasswordReset = async (req, res, next) => {
 
     // Send OTP via email
     await sendEmail({
-      // to: email,
-      to: "vaibhavjogdand@luciensolutions.com",
+      to: email,
       subject: "Password Reset OTP",
       html: getPasswordResetOTPTemplate(otp),
     });
