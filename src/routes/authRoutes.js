@@ -10,6 +10,9 @@ const {
   requestPasswordReset,
   verifyPasswordResetOTP,
   resetPassword,
+  testEmail,
+  resendVerificationEmail,
+  resendOTP,
 } = require("../controllers/authController");
 const validateRequest = require("../validators/validateRequest");
 const {
@@ -19,6 +22,8 @@ const {
   requestPasswordResetValidator,
   verifyResetOTPValidator,
   resetPasswordValidator,
+  requestEmailVerficationValidator,
+  resendOtpValidator,
 } = require("../validators/authValidators");
 
 /**
@@ -74,18 +79,15 @@ router.post("/register", validateRequest(registerValidator), registerUser);
  *           schema:
  *             type: object
  *             required:
- *               - email
- *               - otp
+ *               - token
  *             properties:
- *               email:
- *                 type: string
- *               otp:
+ *               token:
  *                 type: string
  *     responses:
  *       200:
  *         description: Email verified successfully
  *       400:
- *         description: Validation or OTP error
+ *         description: Validation error
  */
 router.post(
   "/verify-email",
@@ -213,5 +215,68 @@ router.post(
   validateRequest(resetPasswordValidator),
   resetPassword
 );
+
+/**
+ * @swagger
+ * /auth/resend-otp:
+ *   post:
+ *     summary: Request password reset via email OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OTP sent to email
+ *       400:
+ *         description: Invalid email or user not found
+ *       429:
+ *         description: Too many requests - wait before trying again
+ */
+router.post("/resend-otp", validateRequest(resendOtpValidator), resendOTP);
+
+/**
+ * @swagger
+ * /auth/resend-account-verification-link:
+ *   post:
+ *     summary: Request account verification link
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Verification email sent successfully
+ *       400:
+ *         description: Email is already verified or email is missing
+ *       404:
+ *         description: User not found
+ *       429:
+ *         description: Too many requests - wait before trying again
+ */
+router.post(
+  "/resend-account-verification-link",
+  validateRequest(requestEmailVerficationValidator),
+  resendVerificationEmail
+);
+
+router.post("/test-email", testEmail);
 
 module.exports = router;

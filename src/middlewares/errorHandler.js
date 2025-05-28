@@ -50,7 +50,7 @@ module.exports = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || "error";
 
-  if (process.env.ENVIRONMENT === "prod") {
+  if (process.env.ENVIRONMENT === "development") {
     sendErrorDev(err, res);
   } else {
     let error = { ...err, message: err.message };

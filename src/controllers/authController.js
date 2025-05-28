@@ -6,9 +6,10 @@ const { generateVerificationToken } = require("../utils/token");
 const { sendVerificationEmail, sendEmail } = require("../utils");
 const AppError = require("../routes/AppError");
 const crypto = require("crypto");
-const getPasswordResetOTPTemplate = require("../utils/emailTemplates");
-
-// const Role = require('../../models/Role');
+const {
+  getPasswordResetOTPTemplate,
+  emailVerificationTemplate,
+} = require("../utils/emailTemplates");
 
 exports.registerUser = async (req, res, next) => {
   try {
@@ -26,12 +27,10 @@ exports.registerUser = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email });
 
-    // CASE 1: Email already exists and verified
     if (existingUser && existingUser.isEmailVerified) {
       return next(new AppError("User already exists. Please log in.", 409));
     }
 
-    // CASE 2: Email exists but not verified
     if (existingUser && !existingUser.isEmailVerified) {
       return next(
         new AppError(
@@ -69,7 +68,13 @@ exports.registerUser = async (req, res, next) => {
 
     const token = generateVerificationToken(newUser._id);
 
-    await sendVerificationEmail(newUser.email, token);
+    const link = `auth.norvor.com/verify-email?token=${token}`;
+
+    await sendEmail({
+      to: newUser.email,
+      subject: "Norvor Account Verification",
+      html: emailVerificationTemplate(link),
+    });
 
     return res.status(201).json({
       message: "Registration successful. Please verify your email.",
@@ -110,7 +115,6 @@ exports.loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
     if (!email || !password) {
       throw new AppError("Email and password are required", 400);
     }
@@ -121,7 +125,6 @@ exports.loginUser = async (req, res, next) => {
       throw new AppError("Invalid email or password", 404);
     }
 
-    // Email verification check
     if (!user.isEmailVerified) {
       throw new AppError(
         "Email is not verified. Please verify your email first.",
@@ -129,18 +132,15 @@ exports.loginUser = async (req, res, next) => {
       );
     }
 
-    // Password check
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw new AppError("Invalid email or password", 401);
     }
 
-    // User status check
     if (user.status !== "active") {
       throw new AppError("User account is inactive. Contact support.", 403);
     }
 
-    // Payload
     const payload = {
       userId: user._id,
       orgId: user.organizationId,
@@ -155,14 +155,13 @@ exports.loginUser = async (req, res, next) => {
       expiresIn: "7d",
     });
 
-    // Update last login timestamp
     user.lastLoginAt = new Date();
     await user.save();
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.ENVIRONMENT === "production", // use https in prod
-      // sameSite: "Strict", // or 'Lax' if cross-site requests allowed
+      secure: process.env.ENVIRONMENT === "production",
+      // sameSite: "Strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -180,7 +179,7 @@ exports.loginUser = async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err); // Pass to global error handler
+    next(err);
   }
 };
 
@@ -193,18 +192,14 @@ exports.requestPasswordReset = async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) throw new AppError("User with this email does not exist", 404);
 
-    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Hash OTP before saving
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Store hashed OTP and expiry in user
     user.resetPasswordOTP = hashedOtp;
     user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    // Send OTP via email
     await sendEmail({
       to: email,
       subject: "Password Reset OTP",
@@ -226,7 +221,6 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) throw new AppError("User not found", 404);
 
-    // Check OTP validity
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
     const isOtpValid =
@@ -235,10 +229,8 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
 
     if (!isOtpValid) throw new AppError("Invalid or expired OTP", 400);
 
-    // Mark OTP as verified (or allow password reset now)
     user.resetPasswordOTP = undefined;
     user.resetPasswordOTPExpires = undefined;
-    user.canResetPassword = true; // Optional flag
     await user.save();
 
     res.status(200).json({ message: "OTP verified successfully" });
@@ -260,10 +252,8 @@ exports.resetPassword = async (req, res, next) => {
       throw new AppError("User not found", 404);
     }
 
-    // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update password and optionally clear any OTP/reset token fields
     user.password = hashedPassword;
     user.resetPasswordOTP = undefined;
     user.resetPasswordOTPExpires = undefined;
@@ -275,7 +265,7 @@ exports.resetPassword = async (req, res, next) => {
         "Password reset successful. You can now log in with your new password.",
     });
   } catch (err) {
-    next(err); // Pass to centralized error handler
+    next(err);
   }
 };
 
@@ -297,5 +287,110 @@ exports.logoutUser = async (req, res) => {
   } catch (error) {
     console.error("Logout Error:", error);
     return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+exports.resendOTP = async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) return next(new AppError("Email is required", 400));
+
+  const user = await User.findOne({ email });
+  if (!user) return next(new AppError("User not found", 404));
+
+  const now = new Date();
+  if (user.resendOtpCooldown && now - user.resendOtpCooldown < 60000) {
+    const secondsLeft = Math.ceil(
+      (60000 - (now - user.resendOtpCooldown)) / 1000
+    );
+    return next(
+      new AppError(
+        `Please wait ${secondsLeft}s before requesting a new OTP.`,
+        429
+      )
+    );
+  }
+
+  const otp = crypto.randomInt(100000, 999999).toString();
+
+  user.emailVerificationOTP = otp;
+  user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // valid for 10 mins
+  user.resendOtpCooldown = now;
+  await user.save();
+
+  await sendEmail({
+    to: user.email,
+    subject: "Verify Your Email - OTP",
+    html: getPasswordResetOTPTemplate(otp),
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "OTP resent successfully",
+  });
+};
+
+exports.resendVerificationEmail = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return next(new AppError("Email is required", 400));
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    if (user.isEmailVerified) {
+      return next(new AppError("Email is already verified", 400));
+    }
+
+    const now = new Date();
+    const lastSent = user.lastVerificationEmailSentAt;
+
+    if (lastSent && now - lastSent < 60 * 1000) {
+      const waitTime = Math.ceil((60 * 1000 - (now - lastSent)) / 1000);
+      return next(
+        new AppError(
+          `Please wait ${waitTime} seconds before requesting again`,
+          429
+        )
+      );
+    }
+
+    const token = generateVerificationToken(user._id);
+
+    const link = `auth.norvor.com/verify-email?token=${token}`;
+
+    await sendEmail({
+      to: user.email,
+      subject: "Norvor Account Verification",
+      html: emailVerificationTemplate(link),
+    });
+
+    user.lastVerificationEmailSentAt = new Date();
+
+    await user.save();
+
+    res.status(200).json({ message: "Verification email sent successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.testEmail = async (req, res) => {
+  try {
+    await sendEmail({
+      to: "vrjogdand708@gmail.com",
+      subject: "Test email",
+      html: "542512",
+    });
+
+    res.status(200).json("Email sent successfully");
+  } catch (error) {
+    console.log("EMAIL: ", error);
+    res.status(500).json("Error sending email");
   }
 };

@@ -1,4 +1,4 @@
-const getPasswordResetOTPTemplate = (otp) => {
+exports.getPasswordResetOTPTemplate = (otp) => {
   const year = new Date().getFullYear();
 
   return `
@@ -87,7 +87,7 @@ const getPasswordResetOTPTemplate = (otp) => {
   `;
 };
 
-const emailVerificationTemplate = (link) => {
+exports.emailVerificationTemplate = (link) => {
   return `
   <!DOCTYPE html>
   <html lang="en">
@@ -168,5 +168,3 @@ const emailVerificationTemplate = (link) => {
   </html>
   `;
 };
-
-module.exports = { getPasswordResetOTPTemplate, emailVerificationTemplate };

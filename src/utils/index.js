@@ -7,7 +7,8 @@ const VERIFICATION_BASE_URL = "auth.norvor.com";
 const sendEmail = async ({ to, subject, html }) => {
   try {
     const data = await resend.emails.send({
-      from: "Norvor <noreply@norvor.com>",
+      // from: "Norvor <noreply@norvor.com>",
+      from: "Norvor <noreply@cutememories.in>",
       to,
       subject,
       html,
@@ -20,15 +21,4 @@ const sendEmail = async ({ to, subject, html }) => {
   }
 };
 
-const sendVerificationEmail = async (email, token) => {
-  const link = `${VERIFICATION_BASE_URL}/verify-email?token=${token}`;
-
-  await resend.emails.send({
-    from: "Norvor <noreply@norvor.com>",
-    to: email,
-    subject: "Verify your email",
-    html: emailVerificationTemplate(link),
-  });
-};
-
-module.exports = { sendVerificationEmail, sendEmail };
+module.exports = { sendEmail };
