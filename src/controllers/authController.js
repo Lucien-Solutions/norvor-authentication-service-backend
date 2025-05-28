@@ -1,10 +1,9 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
-const Organization = require("../models/Organization");
 const { generateVerificationToken } = require("../utils/token");
-const { sendVerificationEmail, sendEmail } = require("../utils");
-const AppError = require("../routes/AppError");
+const { sendEmail } = require("../utils");
+const AppError = require("../utils/AppError");
 const crypto = require("crypto");
 const {
   getPasswordResetOTPTemplate,
@@ -375,6 +374,66 @@ exports.resendVerificationEmail = async (req, res, next) => {
     await user.save();
 
     res.status(200).json({ message: "Verification email sent successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.refreshAuthToken = async (req, res, next) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Refresh token missing" });
+    }
+
+    jwt.verify(
+      refreshToken,
+      process.env.JWT_REFRESH_SECRET,
+      async (err, decoded) => {
+        if (err) {
+          return res
+            .status(403)
+            .json({ message: "Invalid or expired refresh token" });
+        }
+
+        const user = await User.findById(decoded.userId);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const newAccessToken = jwt.sign(
+          { userId: user._id, email: user.email },
+          process.env.JWT_ACCESS_SECRET,
+          { expiresIn: "15m" }
+        );
+
+        // Re-issue refresh token for rotation strategy
+        // const newRefreshToken = jwt.sign(
+        //   { userId: user._id },
+        //   process.env.REFRESH_TOKEN_SECRET,
+        //   { expiresIn: "7d" }
+        // );
+        // res.cookie("refreshToken", newRefreshToken, {
+        //   httpOnly: true,
+        //   secure: process.env.NODE_ENV === "production",
+        //   sameSite: "Strict",
+        //   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        // });
+
+        // Set new access token in cookie
+        // res.cookie("accessToken", newAccessToken, {
+        //   httpOnly: true,
+        //   secure: process.env.NODE_ENV === "production",
+        //   sameSite: "Strict",
+        //   maxAge: 15 * 60 * 1000, // 15 mins
+        // });
+
+        res
+          .status(200)
+          .json({ message: "Token refreshed", accessToken: newAccessToken });
+      }
+    );
   } catch (err) {
     next(err);
   }

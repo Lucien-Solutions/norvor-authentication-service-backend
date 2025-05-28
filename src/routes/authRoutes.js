@@ -13,6 +13,7 @@ const {
   testEmail,
   resendVerificationEmail,
   resendOTP,
+  refreshAuthToken,
 } = require("../controllers/authController");
 const validateRequest = require("../validators/validateRequest");
 const {
@@ -118,6 +119,11 @@ router.post(
  *     responses:
  *       200:
  *         description: Login successful
+ *         headers:
+ *          Set-Cookie:
+ *            description: Authentication token cookie
+ *            schema:
+ *              type: string
  *       400:
  *         description: Missing fields or invalid credentials
  */
@@ -276,6 +282,34 @@ router.post(
   validateRequest(requestEmailVerficationValidator),
   resendVerificationEmail
 );
+
+/**
+ * @swagger
+ * /auth/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     description: Use a valid refresh token (sent as cookie) to generate a new access token.
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Token refreshed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Token refreshed
+ *                 accessToken:
+ *                   type: string
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *       401:
+ *         description: Refresh token missing
+ *       403:
+ *         description: Invalid or expired refresh token
+ */
+router.post("/refresh-token", refreshAuthToken);
 
 router.post("/test-email", testEmail);
 
