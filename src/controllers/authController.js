@@ -146,7 +146,7 @@ exports.loginUser = async (req, res, next) => {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
+    const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
       expiresIn: "15m",
     });
 
@@ -404,7 +404,7 @@ exports.refreshAuthToken = async (req, res, next) => {
 
         const newAccessToken = jwt.sign(
           { userId: user._id, email: user.email },
-          process.env.JWT_ACCESS_SECRET,
+          process.env.ACCESS_TOKEN_SECRET,
           { expiresIn: "15m" }
         );
 
