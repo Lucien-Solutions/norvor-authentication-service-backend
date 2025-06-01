@@ -14,6 +14,7 @@ const {
   resendVerificationEmail,
   resendOTP,
   refreshAuthToken,
+  getUserById,
 } = require("../controllers/authController");
 const validateRequest = require("../validators/validateRequest");
 const {
@@ -311,6 +312,54 @@ router.post(
  */
 router.post("/refresh-token", refreshAuthToken);
 
-router.post("/test-email", testEmail);
+/**
+ * @swagger
+ * /auth/user/{id}:
+ *   get:
+ *     summary: Get user by ID
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the user to fetch
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "64e1111ca7e435f7c48904a1"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john@example.com"
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (not allowed to access this user's data)
+ *       404:
+ *         description: User not found
+ */
+router.get("/user/:id", getUserById);
 
 module.exports = router;

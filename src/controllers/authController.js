@@ -439,17 +439,18 @@ exports.refreshAuthToken = async (req, res, next) => {
   }
 };
 
-exports.testEmail = async (req, res) => {
+exports.getUserById = async (req, res, next) => {
   try {
-    await sendEmail({
-      to: "vrjogdand708@gmail.com",
-      subject: "Test email",
-      html: "542512",
-    });
+    const { id } = req.params;
 
-    res.status(200).json("Email sent successfully");
+    const user = await User.findById(id).select("-password"); // exclude password
+
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    return res.status(200).json({ user });
   } catch (error) {
-    console.log("EMAIL: ", error);
-    res.status(500).json("Error sending email");
+    next(error);
   }
 };
