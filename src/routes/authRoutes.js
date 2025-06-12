@@ -15,6 +15,7 @@ const {
   resendOTP,
   refreshAuthToken,
   getUserById,
+  getUserByEmail
 } = require("../controllers/authController");
 const validateRequest = require("../validators/validateRequest");
 const {
@@ -360,6 +361,10 @@ router.post("/refresh-token", refreshAuthToken);
  *       404:
  *         description: User not found
  */
+
+router.get("/get-user-by-email/:email", getUserByEmail);
 router.get("/user/:id", getUserById);
+
+
 
 module.exports = router;

@@ -454,3 +454,26 @@ exports.getUserById = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getUserByEmail = async (req, res, next) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return next(new AppError("Email is required", 400));
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(200).json({ user: null }); // For cross-service use
+  }
+
+  return res.status(200).json({
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role:user.role
+    },
+  });
+};
