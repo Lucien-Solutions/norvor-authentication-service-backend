@@ -362,6 +362,48 @@ router.post("/refresh-token", refreshAuthToken);
  *         description: User not found
  */
 
+/**
+ * @swagger
+ * /auth/get-user-by-email/{email}:
+ *   get:
+ *     summary: Get user by email
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: email
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The email of the user to fetch
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved user or null if not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   anyOf:
+ *                     - type: "null"
+ *                     - type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "64e1111ca7e435f7c48904a1"
+ *                         name:
+ *                           type: string
+ *                           example: "John Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "john@example.com"
+ *                         role:
+ *                           type: string
+ *                           example: "user"
+ *       400:
+ *         description: Email is required
+ */
+
 router.get("/get-user-by-email/:email", getUserByEmail);
 router.get("/user/:id", getUserById);
 
