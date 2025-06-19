@@ -67,7 +67,7 @@ exports.registerUser = async (req, res, next) => {
 
     const token = generateVerificationToken(newUser._id);
 
-    const link = `auth.norvor.com/verify-email?token=${token}`;
+    const link = `${process.env.appUrl}/verify-email?token=${token}`;
 
     await sendEmail({
       to: newUser.email,
@@ -473,7 +473,7 @@ exports.getUserByEmail = async (req, res, next) => {
       _id: user._id,
       name: user.name,
       email: user.email,
-      role:user.role
+      role: user.role,
     },
   });
 };
