@@ -53,6 +53,7 @@ exports.verifyResetOTPValidator = Joi.object({
 });
 
 exports.resetPasswordValidator = Joi.object({
-  email: Joi.string().email().required(),
+  resetToken: Joi.string().required(),
   newPassword: Joi.string().min(6).required(),
 });
+

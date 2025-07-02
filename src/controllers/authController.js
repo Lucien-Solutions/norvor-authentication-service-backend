@@ -232,7 +232,13 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
     user.resetPasswordOTPExpires = undefined;
     await user.save();
 
-    res.status(200).json({ message: "OTP verified successfully" });
+    const resetToken = jwt.sign(
+      { email },
+      process.env.JWT_RESET_SECRET,
+      { expiresIn: "10m" }
+    );
+
+    res.status(200).json({ message: "OTP verified", resetToken });
   } catch (err) {
     next(err);
   }
@@ -240,28 +246,27 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
 
 exports.resetPassword = async (req, res, next) => {
   try {
-    const { email, newPassword } = req.body;
+    const { resetToken, newPassword } = req.body;
 
-    if (!email || !newPassword) {
-      throw new AppError("Email and new password are required", 400);
+    if (!resetToken || !newPassword) {
+      throw new AppError("Reset token and new password are required", 400);
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      throw new AppError("User not found", 404);
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, process.env.JWT_RESET_SECRET);
+    } catch (err) {
+      throw new AppError("Invalid or expired reset token", 401);
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const user = await User.findOne({ email: decoded.email });
+    if (!user) throw new AppError("User not found", 404);
 
-    user.password = hashedPassword;
-    user.resetPasswordOTP = undefined;
-    user.resetPasswordOTPExpires = undefined;
-
+    user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     res.status(200).json({
-      message:
-        "Password reset successful. You can now log in with your new password.",
+      message: "Password reset successful. You can now log in with your new password.",
     });
   } catch (err) {
     next(err);
