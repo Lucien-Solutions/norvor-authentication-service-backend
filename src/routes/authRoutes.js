@@ -164,7 +164,7 @@ router.post(
  * @swagger
  * /auth/verify-password-reset-otp:
  *   post:
- *     summary: Verify OTP for password reset
+ *     summary: Verify OTP for password reset and receive reset token
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -178,14 +178,30 @@ router.post(
  *             properties:
  *               email:
  *                 type: string
+ *                 example: user@example.com
  *               otp:
  *                 type: string
+ *                 example: "123456"
  *     responses:
  *       200:
- *         description: OTP verified
+ *         description: OTP verified successfully, reset token returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: OTP verified
+ *                 resetToken:
+ *                   type: string
+ *                   description: Token required to reset the password
  *       400:
  *         description: Invalid or expired OTP
+ *       404:
+ *         description: User not found
  */
+
 router.post(
   "/verify-password-reset-otp",
   validateRequest(verifyResetOTPValidator),
@@ -205,19 +221,34 @@ router.post(
  *           schema:
  *             type: object
  *             required:
- *               - email
+ *               - resetToken
  *               - newPassword
  *             properties:
- *               email:
+ *               resetToken:
  *                 type: string
+ *                 description: Token received after OTP verification
  *               newPassword:
  *                 type: string
+ *                 example: MySecurePassword123!
  *     responses:
  *       200:
  *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Password reset successful. You can now log in with your new password.
  *       400:
- *         description: Validation error
+ *         description: Validation error (e.g., missing fields)
+ *       401:
+ *         description: Invalid or expired reset token
+ *       404:
+ *         description: User not found
  */
+
 router.post(
   "/reset-password",
   validateRequest(resetPasswordValidator),
