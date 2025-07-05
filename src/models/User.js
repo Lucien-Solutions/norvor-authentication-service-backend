@@ -25,6 +25,10 @@ const UserSchema = new mongoose.Schema(
       lowercase: true,
       index: true,
     },
+ profileImageURL: String,
+    phone: {
+      type: String,
+    },
     password: {
       type: String,
       required: function () {
