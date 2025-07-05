@@ -57,3 +57,20 @@ exports.resetPasswordValidator = Joi.object({
   newPassword: Joi.string().min(6).required(),
 });
 
+
+
+exports.updateUserProfileValidator = Joi.object({
+  name: Joi.string().min(2).max(100).optional(),
+  email: Joi.string().email().optional(),
+  phone: Joi.string()
+    .pattern(/^[0-9+\-\s()]{6,20}$/)
+    .optional()
+    .messages({
+      "string.pattern.base": "Phone number must be a valid format",
+    }),
+  profileImageURL: Joi.string().uri().optional(),
+  organizationId: Joi.string().hex().length(24).optional(), // assuming MongoDB ObjectId
+  status: Joi.string()
+    .valid("active", "inactive", "invited", "suspended")
+    .optional(),
+});

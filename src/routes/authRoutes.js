@@ -15,7 +15,10 @@ const {
   resendOTP,
   refreshAuthToken,
   getUserById,
-  getUserByEmail
+  getUserByEmail,
+  downloadImage,
+  updateUserProfile,
+  uploadProfilePicture
 } = require("../controllers/authController");
 const validateRequest = require("../validators/validateRequest");
 const {
@@ -27,7 +30,10 @@ const {
   resetPasswordValidator,
   requestEmailVerficationValidator,
   resendOtpValidator,
+  updateUserProfileValidator
 } = require("../validators/authValidators");
+const upload = require("../middlewares/upload");
+const { verifyJWT } = require("../middlewares/authMiddleware");
 
 /**
  * @swagger
@@ -435,8 +441,118 @@ router.post("/refresh-token", refreshAuthToken);
  *         description: Email is required
  */
 
+/**
+ * @swagger
+ * /auth/update-profile:
+ *   patch:
+ *     summary: Update user profile for the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               phone:
+ *                 type: string
+ *               profileImageURL:
+ *                 type: string
+ *               organizationId:
+ *                 type: string
+ *                 format: uuid
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, invited, suspended]
+ *             required:
+ *               - name
+ *               - email
+ *     responses:
+ *       200:
+ *         description: User profile updated successfully
+ *       404:
+ *         description: User profile not found
+ */
+
+
+/**
+ * @swagger
+ * /auth/upload-profile-image:
+ *   patch:
+ *     summary: Upload profile image for the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Profile image file to upload
+ *     responses:
+ *       200:
+ *         description: Profile image uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Profile image uploaded successfully.
+ *                 data:
+ *                   $ref: '#/components/schemas/UserProfile'
+ *       400:
+ *         description: No file uploaded or invalid file
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+
+/**
+ * @swagger
+ * /auth/download-profile-image:
+ *   get:
+ *     summary: Download the authenticated user's profile image
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Returns the user's profile image
+ *         content:
+ *           image/jpeg:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Image not found
+ *       500:
+ *         description: Failed to download image
+ */
 router.get("/get-user-by-email/:email", getUserByEmail);
 router.get("/user/:id", getUserById);
+router.patch("/update-profile",validateRequest(updateUserProfileValidator),verifyJWT, updateUserProfile);
+router.patch("/upload-profile-image",verifyJWT, upload.single("image"), uploadProfilePicture);
+router.get(
+  "/download-profile-image",verifyJWT,
+  downloadImage
+);
 
 
 

@@ -5,6 +5,7 @@ const { generateVerificationToken } = require("../utils/token");
 const { sendEmail } = require("../utils");
 const AppError = require("../utils/AppError");
 const crypto = require("crypto");
+const { uploadImage,s3 } = require("../utils/s3Upload");
 const {
   getPasswordResetOTPTemplate,
   emailVerificationTemplate,
@@ -481,4 +482,88 @@ exports.getUserByEmail = async (req, res, next) => {
       role: user.role,
     },
   });
+};
+
+exports.updateUserProfile = async (req, res, next) => {
+  try {
+    const _id= req.user._id
+
+    const updated = await User.findOneAndUpdate(
+      { _id },
+      { $set: req.body },
+      { new: true }
+    );
+
+    if (!updated) {
+      return next(new AppError("User profile not found.", 404));
+    }
+
+     res.status(200).json({
+    success: true,
+    message: "User profile updated successfully.",updated
+  });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+exports.uploadProfilePicture = async (req, res, next) => {
+  try {
+    const _id = req.user._id;
+    if (!req.file) {
+        return next(new AppError("No file uploaded.", 400));
+    }
+
+    const imageUrl = await uploadImage(req.file.buffer, _id, req.file.originalname);
+
+    const profile = await User.findOneAndUpdate(
+      { _id },
+      { profileImageURL: imageUrl },
+      { new: true, upsert: true }
+    );
+
+      res.status(200).json({
+    success: true,
+    message: "Profile image uploaded successfully.",profile
+  });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+exports.downloadImage = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    if (!userId) {
+    return next(new AppError("User ID is required.", 400));
+    }
+
+    const extensions = [".jpg", ".jpeg", ".png", ".webp"];
+    let foundKey = null;
+
+    for (const ext of extensions) {
+      const key = `user/profilepics/${userId}${ext}`;
+      try {
+        await s3.headObject({ Bucket: "norvorcrm", Key: key }).promise();
+        foundKey = key;
+        break;
+      } catch (_) {}
+    }
+
+    if (!foundKey) {
+      return next(new AppError("Image not found.", 404));
+    }
+
+    const stream = s3.getObject({ Bucket: "norvorcrm", Key: foundKey }).createReadStream();
+    res.setHeader("Content-Type", "image/jpeg");
+    stream.pipe(res);
+  } catch (err) {
+    console.error("Error downloading image:", err);
+    res.status(500).json({
+    success: true,
+    message: "Failed to download image.",profile
+  });
+  }
 };
