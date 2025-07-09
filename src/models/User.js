@@ -29,6 +29,9 @@ const UserSchema = new mongoose.Schema(
     phone: {
       type: String,
     },
+    recoveryEmail:{
+      type: String,
+    },
     password: {
       type: String,
       required: function () {
