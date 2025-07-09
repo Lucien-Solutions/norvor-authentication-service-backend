@@ -18,7 +18,9 @@ const {
   getUserByEmail,
   downloadImage,
   updateUserProfile,
-  uploadProfilePicture
+  uploadProfilePicture,
+  changePassword,
+  updateRecoveryEmail
 } = require("../controllers/authController");
 const validateRequest = require("../validators/validateRequest");
 const {
@@ -30,7 +32,9 @@ const {
   resetPasswordValidator,
   requestEmailVerficationValidator,
   resendOtpValidator,
-  updateUserProfileValidator
+  updateUserProfileValidator,
+  changePasswordValidator,
+  recoveryEmailValidator
 } = require("../validators/authValidators");
 const upload = require("../middlewares/upload");
 const { verifyJWT } = require("../middlewares/authMiddleware");
@@ -515,7 +519,33 @@ router.post("/refresh-token", refreshAuthToken);
  *                   type: string
  *                   example: Profile image uploaded successfully.
  *                 data:
- *                   $ref: '#/components/schemas/UserProfile'
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "64a0f3c1e6b3a0f3c1e6b3a0"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: "john@example.com"
+ *                     phone:
+ *                       type: string
+ *                       example: "+1234567890"
+ *                     profileImageURL:
+ *                       type: string
+ *                       format: uri
+ *                       example: "https://example.com/images/profile.jpg"
+ *                     organizationId:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "123e4567-e89b-12d3-a456-426614174000"
+ *                     status:
+ *                       type: string
+ *                       enum: [active, inactive, invited, suspended]
+ *                       example: "active"
  *       400:
  *         description: No file uploaded or invalid file
  *       401:
@@ -523,6 +553,7 @@ router.post("/refresh-token", refreshAuthToken);
  *       500:
  *         description: Internal server error
  */
+
 
 /**
  * @swagger
@@ -545,6 +576,104 @@ router.post("/refresh-token", refreshAuthToken);
  *       500:
  *         description: Failed to download image
  */
+
+/**
+ * @swagger
+ * /auth/change-password:
+ *   patch:
+ *     summary: Change password for the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmNewPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 example: myOldPassword123
+ *               newPassword:
+ *                 type: string
+ *                 example: myNewPassword456
+ *               confirmNewPassword:
+ *                 type: string
+ *                 example: myNewPassword456
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Validation error or current password incorrect
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+
+
+/**
+ * @swagger
+ * /auth/update-recovery-email:
+ *   patch:
+ *     summary: Add or update the recovery email of the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recoveryEmail
+ *             properties:
+ *               recoveryEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: recovery@example.com
+ *     responses:
+ *       200:
+ *         description: Recovery email updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Recovery email updated successfully.
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     recoveryEmail:
+ *                       type: string
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+
+
 router.get("/get-user-by-email/:email", getUserByEmail);
 router.get("/user/:id", getUserById);
 router.patch("/update-profile",validateRequest(updateUserProfileValidator),verifyJWT, updateUserProfile);
@@ -553,7 +682,19 @@ router.get(
   "/download-profile-image",verifyJWT,
   downloadImage
 );
+router.patch(
+  "/change-password",
+  validateRequest(changePasswordValidator),
+  verifyJWT,
+  changePassword
+);
 
+router.patch(
+  "/update-recovery-email",
+  validateRequest(recoveryEmailValidator),
+  verifyJWT,
+  updateRecoveryEmail
+);
 
 
 module.exports = router;

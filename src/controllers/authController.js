@@ -567,3 +567,58 @@ exports.downloadImage = async (req, res, next) => {
   });
   }
 };
+
+exports.changePassword = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new AppError("User not found.", 404));
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return next(new AppError("Current password is incorrect.", 400));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateRecoveryEmail = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { recoveryEmail } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { recoveryEmail } },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return next(new AppError("User not found.", 404));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Recovery email updated successfully.",
+      user,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

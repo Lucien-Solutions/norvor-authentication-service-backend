@@ -74,3 +74,15 @@ exports.updateUserProfileValidator = Joi.object({
     .valid("active", "inactive", "invited", "suspended")
     .optional(),
 });
+
+exports.changePasswordValidator = Joi.object({
+  currentPassword: Joi.string().required(),
+  newPassword: Joi.string().min(6).required(),
+  confirmNewPassword: Joi.string().valid(Joi.ref("newPassword")).required().messages({
+    "any.only": "Confirm password must match new password.",
+  }),
+})
+
+exports.recoveryEmailValidator = Joi.object({
+  recoveryEmail: Joi.string().email().required(),
+});
