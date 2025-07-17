@@ -68,7 +68,7 @@ exports.registerUser = async (req, res, next) => {
 
     const token = generateVerificationToken(newUser._id);
 
-    const link = `${process.env.appUrl}/verify-email?token=${token}`;
+    const link = `https://staging-crm.norvor.com/confirm-email?token=${token}`;
 
     await sendEmail({
       to: newUser.email,
