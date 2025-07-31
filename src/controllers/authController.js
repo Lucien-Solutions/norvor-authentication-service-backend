@@ -11,6 +11,10 @@ const {
   emailVerificationTemplate,
 } = require("../utils/emailTemplates");
 
+const generateOtp = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 exports.registerUser = async (req, res, next) => {
   try {
     const {
@@ -141,6 +145,40 @@ exports.loginUser = async (req, res, next) => {
       throw new AppError("User account is inactive. Contact support.", 403);
     }
 
+    const otp = generateOtp();
+    user.otp = otp;
+    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); 
+    await user.save();
+
+
+    res.status(200).json({
+      message: "Login OTP Generated Successful",
+      otp,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+exports.verifyLoginOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      throw new AppError("Email and OTP are required", 400);
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user || user.otp !== otp) {
+      throw new AppError("Invalid OTP", 401);
+    }
+
+    user.otp = undefined;
+    user.lastLoginAt = new Date();
+    await user.save();
+
     const payload = {
       userId: user._id,
       orgId: user.organizationId,
@@ -155,27 +193,23 @@ exports.loginUser = async (req, res, next) => {
       expiresIn: "7d",
     });
 
-    user.lastLoginAt = new Date();
-    await user.save();
-
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.ENVIRONMENT === "production",
-      // sameSite: "Strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
-      message: "Login successful",
+      message: "OTP Verified Successfully",
       accessToken,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        organizationId: {
-          id: user.organizationId,
-        },
+        // organizationId: {
+        //   id: user.organizationId,
+        // },
       },
     });
   } catch (err) {

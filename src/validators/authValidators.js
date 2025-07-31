@@ -30,6 +30,10 @@ exports.loginValidator = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
 });
+exports.verifyLoginOtpValidator = Joi.object({
+  email: Joi.string().email().required(),
+  otp: Joi.string().required(),
+});
 
 exports.verifyEmailValidator = Joi.object({
   token: Joi.string().required(),

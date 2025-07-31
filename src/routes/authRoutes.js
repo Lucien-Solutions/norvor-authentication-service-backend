@@ -20,7 +20,8 @@ const {
   updateUserProfile,
   uploadProfilePicture,
   changePassword,
-  updateRecoveryEmail
+  updateRecoveryEmail,
+  verifyLoginOtp
 } = require("../controllers/authController");
 const validateRequest = require("../validators/validateRequest");
 const {
@@ -34,7 +35,8 @@ const {
   resendOtpValidator,
   updateUserProfileValidator,
   changePasswordValidator,
-  recoveryEmailValidator
+  recoveryEmailValidator,
+  verifyLoginOtpValidator
 } = require("../validators/authValidators");
 const upload = require("../middlewares/upload");
 const { verifyJWT } = require("../middlewares/authMiddleware");
@@ -112,7 +114,7 @@ router.post(
  * @swagger
  * /auth/login:
  *   post:
- *     summary: Login user and return tokens
+ *     summary: Login user generate otp
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -130,7 +132,7 @@ router.post(
  *                 type: string
  *     responses:
  *       200:
- *         description: Login successful
+ *         description: Login OTP Generated Successfully
  *         headers:
  *          Set-Cookie:
  *            description: Authentication token cookie
@@ -140,6 +142,45 @@ router.post(
  *         description: Missing fields or invalid credentials
  */
 router.post("/login", validateRequest(loginValidator), loginUser);
+
+/**
+ * @swagger
+ * /auth/verify-login-otp:
+ *   post:
+ *     summary: Verify OTP for login
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               otp:
+ *                 type: string
+ *                 example: 123456
+ *     responses:
+ *       200:
+ *         description: OTP Verified Successfully
+ *         headers:
+ *           Set-Cookie:
+ *             description: Authentication token cookie
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Invalid or expired OTP
+ *       404:
+ *         description: User not found
+ */
+
+
+router.post("/verify-login-otp", validateRequest(verifyLoginOtpValidator),verifyLoginOtp);
 
 /**
  * @swagger
