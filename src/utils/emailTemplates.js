@@ -87,6 +87,95 @@ exports.getPasswordResetOTPTemplate = (otp) => {
   `;
 };
 
+exports.getVerifyOTPTemplate = (otp) => {
+  const year = new Date().getFullYear();
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Verify OTP Request</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+          }
+          .container {
+            max-width: 600px;
+            margin: 30px auto;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            background-color: #6a0dad;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+          }
+          .content {
+            padding: 30px 20px;
+            text-align: center;
+          }
+          .content h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 10px;
+          }
+          .otp-box {
+            display: inline-block;
+            margin: 20px auto;
+            padding: 15px 30px;
+            background-color: #f0e5ff;
+            color: #6a0dad;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 6px;
+            letter-spacing: 5px;
+          }
+          .footer {
+            background-color: #fafafa;
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+            padding: 15px 10px;
+          }
+          .note {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #555;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Norvor</h1>
+          </div>
+          <div class="content">
+            <h2>Verify OTP Request</h2>
+            <p>We received a request to verify your password. Use the OTP below to proceed:</p>
+            <div class="otp-box">${otp}</div>
+            <p class="note">This OTP is valid for the next 10 minutes. Do not share it with anyone.</p>
+          </div>
+          <div class="footer">
+            &copy; ${year} Norvor. All rights reserved.
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+};
+
 exports.emailVerificationTemplate = (link) => {
   return `
   <!DOCTYPE html>
