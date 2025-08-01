@@ -145,7 +145,7 @@ router.post("/login", validateRequest(loginValidator), loginUser);
 
 /**
  * @swagger
- * /auth/verify-login-otp:
+ * /auth/login-verify:
  *   post:
  *     summary: Verify OTP for login
  *     tags: [Auth]
@@ -156,12 +156,12 @@ router.post("/login", validateRequest(loginValidator), loginUser);
  *           schema:
  *             type: object
  *             required:
- *               - email
+ *               - tempToken
  *               - otp
  *             properties:
- *               email:
+ *               tempToken:
  *                 type: string
- *                 example: user@example.com
+ *                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..........
  *               otp:
  *                 type: string
  *                 example: 123456
@@ -180,7 +180,7 @@ router.post("/login", validateRequest(loginValidator), loginUser);
  */
 
 
-router.post("/verify-login-otp", validateRequest(verifyLoginOtpValidator),verifyLoginOtp);
+router.post("/login-verify", validateRequest(verifyLoginOtpValidator),verifyLoginOtp);
 
 /**
  * @swagger
@@ -319,9 +319,9 @@ router.post(
  *           schema:
  *             type: object
  *             required:
- *               - email
+ *               - tempToken
  *             properties:
- *               email:
+ *               tempToken:
  *                 type: string
  *     responses:
  *       200:

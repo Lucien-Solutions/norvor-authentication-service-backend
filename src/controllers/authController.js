@@ -9,6 +9,7 @@ const { uploadImage,s3 } = require("../utils/s3Upload");
 const {
   getPasswordResetOTPTemplate,
   emailVerificationTemplate,
+  getVerifyOTPTemplate
 } = require("../utils/emailTemplates");
 
 const generateOtp = () => {
@@ -150,32 +151,63 @@ exports.loginUser = async (req, res, next) => {
     user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); 
     await user.save();
 
+    const tempToken = jwt.sign(
+      {
+        userId: user._id,
+        type: "TEMP",
+      },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "10m" }
+    );
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify OTP Request",
+      html: getVerifyOTPTemplate(otp),
+    });
 
     res.status(200).json({
-      message: "Login OTP Generated Successful",
-      otp,
+      message: "OTP sent to your email successfully.",
+      tempToken,
     });
   } catch (err) {
     next(err);
   }
 };
 
-
 exports.verifyLoginOtp = async (req, res, next) => {
   try {
-    const { email, otp } = req.body;
+    const { tempToken, otp } = req.body;
 
-    if (!email || !otp) {
-      throw new AppError("Email and OTP are required", 400);
+    if (!tempToken || !otp) {
+      throw new AppError("Temp token and OTP are required", 400);
     }
 
-    const user = await User.findOne({ email });
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch (err) {
+      throw new AppError("Invalid or expired temp token", 401);
+    }
 
-    if (!user || user.otp !== otp) {
-      throw new AppError("Invalid OTP", 401);
+    const { userId } = decoded;
+
+    const user = await User.findById({ _id:userId });
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    if (
+      user.otp !== otp ||
+      !user.resetPasswordOTPExpires ||
+      new Date() > user.resetPasswordOTPExpires
+    ) {
+      throw new AppError("Invalid or expired OTP", 401);
     }
 
     user.otp = undefined;
+    user.resetPasswordOTPExpires = undefined;
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -202,14 +234,12 @@ exports.verifyLoginOtp = async (req, res, next) => {
     res.status(200).json({
       message: "OTP Verified Successfully",
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        // organizationId: {
-        //   id: user.organizationId,
-        // },
       },
     });
   } catch (err) {
@@ -330,44 +360,53 @@ exports.logoutUser = async (req, res) => {
 };
 
 exports.resendOTP = async (req, res, next) => {
-  const { email } = req.body;
-  if (!email) return next(new AppError("Email is required", 400));
+  try {
+    const { tempToken } = req.body;
+    if (!tempToken) return next(new AppError("tempToken is required", 400));
 
-  const user = await User.findOne({ email });
-  if (!user) return next(new AppError("User not found", 404));
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch (err) {
+      return next(new AppError("Invalid or expired tempToken", 401));
+    }
 
-  const now = new Date();
-  if (user.resendOtpCooldown && now - user.resendOtpCooldown < 60000) {
-    const secondsLeft = Math.ceil(
-      (60000 - (now - user.resendOtpCooldown)) / 1000
-    );
-    return next(
-      new AppError(
-        `Please wait ${secondsLeft}s before requesting a new OTP.`,
-        429
-      )
-    );
+    const user = await User.findById(decoded.userId);
+    if (!user) return next(new AppError("User not found", 404));
+
+    const now = new Date();
+    if (user.resendOtpCooldown && now - user.resendOtpCooldown < 60000) {
+      const secondsLeft = Math.ceil(
+        (60000 - (now - user.resendOtpCooldown)) / 1000
+      );
+      return next(
+        new AppError(
+          `Please wait ${secondsLeft}s before requesting a new OTP.`,
+          429
+        )
+      );
+    }
+
+    const otp = generateOtp();
+    user.otp = otp;
+    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); 
+    user.resendOtpCooldown = now;
+    await user.save();
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify Your Email - OTP",
+      html: getPasswordResetOTPTemplate(otp),
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "OTP resent successfully",
+    });
+  } catch (err) {
+    next(err);
   }
-
-  const otp = crypto.randomInt(100000, 999999).toString();
-
-  user.emailVerificationOTP = otp;
-  user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // valid for 10 mins
-  user.resendOtpCooldown = now;
-  await user.save();
-
-  await sendEmail({
-    to: user.email,
-    subject: "Verify Your Email - OTP",
-    html: getPasswordResetOTPTemplate(otp),
-  });
-
-  res.status(200).json({
-    success: true,
-    message: "OTP resent successfully",
-  });
 };
-
 exports.resendVerificationEmail = async (req, res, next) => {
   try {
     const { email } = req.body;
