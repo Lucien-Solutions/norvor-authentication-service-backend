@@ -25,8 +25,8 @@ app.use(express.json());
 
 setupSwagger(app);
 
-app.use("/api/auth", authRoutes);
-app.use("/api/cognito",congitoRoutes);
+app.use("/auth-cognito/auth", authRoutes);
+app.use("/auth-cognito/cognito",congitoRoutes);
 
 app.use(errorHandler);
 
