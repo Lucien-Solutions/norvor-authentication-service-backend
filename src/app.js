@@ -4,7 +4,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
 const setupSwagger = require("./docs/swagger");
-const { authRoutes } = require("./routes");
+const { authRoutes,congitoRoutes } = require("./routes");
 const errorHandler = require("./middlewares/errorHandler");
 
 const app = express();
@@ -26,6 +26,7 @@ app.use(express.json());
 setupSwagger(app);
 
 app.use("/api/auth", authRoutes);
+app.use("/api/cognito",congitoRoutes);
 
 app.use(errorHandler);
 
