@@ -81,7 +81,16 @@ const UserSchema = new mongoose.Schema(
 
     otp:{
       type:String
-    }
+    },
+    cognitoSub: {  
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  tempPlainPassword: {
+  type: String,
+  select: false 
+},
   },
   {
     timestamps: true,
