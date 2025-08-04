@@ -22,6 +22,11 @@ const options = {
           scheme: "bearer",
           bearerFormat: "JWT",
         },
+        cookieAuth: {
+        type: "apiKey",
+        in: "cookie",
+        name: "refreshToken",
+      },
       },
     },
     security: [
@@ -36,7 +41,7 @@ const options = {
 const swaggerSpec = swaggerJsdoc(options);
 
 const setupSwagger = (app) => {
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use("/auth-cognito/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 };
 
 module.exports = setupSwagger;
