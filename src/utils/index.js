@@ -1,22 +1,32 @@
-const { Resend } = require('resend');
+const AWS = require('./aws');
+const ses = new AWS.SES({ apiVersion: '2010-12-01' });
 
-const resend = new Resend(process.env.RESEND_KEY);
+async function sendEmail({ to, subject, html }) {
+  const params = {
+    Source: 'Norvor <noreply@norvor.com>',
+    Destination: {
+      ToAddresses: [to],
+    },
+    Message: {
+      Subject: {
+        Data: subject,
+      },
+      Body: {
+        Html: {
+          Data: html,
+        },
+      },
+    },
+  };
 
-const sendEmail = async ({ to, subject, html }) => {
   try {
-    const data = await resend.emails.send({
-      // from: "Norvor <noreply@norvor.com>",
-      from: 'Norvor <noreply@cutememories.in>',
-      to,
-      subject,
-      html,
-    });
-
-    return data;
-  } catch (error) {
-    console.error('[Resend Email Error]', error);
-    throw new Error('Failed to send email');
+    const result = await ses.sendEmail(params).promise();
+    console.log('Email sent:', result);
+    return result;
+  } catch (err) {
+    console.error('Error sending email:', err);
+    throw err;
   }
-};
+}
 
 module.exports = { sendEmail };

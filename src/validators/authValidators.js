@@ -30,6 +30,10 @@ exports.loginValidator = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
 });
+exports.verifyLoginOtpValidator = Joi.object({
+  tempToken: Joi.string().required(),
+  otp: Joi.string().required(),
+});
 
 exports.verifyEmailValidator = Joi.object({
   token: Joi.string().required(),
@@ -40,7 +44,7 @@ exports.requestPasswordResetValidator = Joi.object({
 });
 
 exports.resendOtpValidator = Joi.object({
-  email: Joi.string().email().required(),
+  tempToken: Joi.string().required(),
 });
 
 exports.requestEmailVerficationValidator = Joi.object({
@@ -53,6 +57,37 @@ exports.verifyResetOTPValidator = Joi.object({
 });
 
 exports.resetPasswordValidator = Joi.object({
-  email: Joi.string().email().required(),
+  resetToken: Joi.string().required(),
   newPassword: Joi.string().min(6).required(),
+});
+
+exports.updateUserProfileValidator = Joi.object({
+  name: Joi.string().min(2).max(100).optional(),
+  email: Joi.string().email().optional(),
+  phone: Joi.string()
+    .pattern(/^[0-9+\-\s()]{6,20}$/)
+    .optional()
+    .messages({
+      'string.pattern.base': 'Phone number must be a valid format',
+    }),
+  profileImageURL: Joi.string().uri().optional(),
+  organizationId: Joi.string().hex().length(24).optional(), // assuming MongoDB ObjectId
+  status: Joi.string()
+    .valid('active', 'inactive', 'invited', 'suspended')
+    .optional(),
+});
+
+exports.changePasswordValidator = Joi.object({
+  currentPassword: Joi.string().required(),
+  newPassword: Joi.string().min(6).required(),
+  confirmNewPassword: Joi.string()
+    .valid(Joi.ref('newPassword'))
+    .required()
+    .messages({
+      'any.only': 'Confirm password must match new password.',
+    }),
+});
+
+exports.recoveryEmailValidator = Joi.object({
+  recoveryEmail: Joi.string().email().required(),
 });

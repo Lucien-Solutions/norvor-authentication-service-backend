@@ -5,10 +5,16 @@ const { generateVerificationToken } = require('../utils/token');
 const { sendEmail } = require('../utils');
 const AppError = require('../utils/AppError');
 const crypto = require('crypto');
+const { uploadImage, s3 } = require('../utils/s3Upload');
 const {
   getPasswordResetOTPTemplate,
   emailVerificationTemplate,
+  getVerifyOTPTemplate,
 } = require('../utils/emailTemplates');
+
+const generateOtp = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 exports.registerUser = async (req, res, next) => {
   try {
@@ -66,7 +72,7 @@ exports.registerUser = async (req, res, next) => {
 
     const token = generateVerificationToken(newUser._id);
 
-    const link = `auth.norvor.com/verify-email?token=${token}`;
+    const link = `${process.env.CONFIRM_EMAIL_URL}?token=${token}`;
 
     await sendEmail({
       to: newUser.email,
@@ -139,6 +145,72 @@ exports.loginUser = async (req, res, next) => {
       throw new AppError('User account is inactive. Contact support.', 403);
     }
 
+    const otp = generateOtp();
+    user.otp = otp;
+    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    const tempToken = jwt.sign(
+      {
+        userId: user._id,
+        type: 'TEMP',
+      },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: '10m' }
+    );
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify OTP Request',
+      html: getVerifyOTPTemplate(otp),
+    });
+
+    res.status(200).json({
+      message: 'OTP sent to your email successfully.',
+      tempToken,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.verifyLoginOtp = async (req, res, next) => {
+  try {
+    const { tempToken, otp } = req.body;
+
+    if (!tempToken || !otp) {
+      throw new AppError('Temp token and OTP are required', 400);
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch (err) {
+      console.error('error :', err);
+      throw new AppError('Invalid or expired temp token', 401);
+    }
+
+    const { userId } = decoded;
+
+    const user = await User.findById({ _id: userId });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    if (
+      user.otp !== otp ||
+      !user.resetPasswordOTPExpires ||
+      new Date() > user.resetPasswordOTPExpires
+    ) {
+      throw new AppError('Invalid or expired OTP', 401);
+    }
+
+    user.otp = undefined;
+    user.resetPasswordOTPExpires = undefined;
+    user.lastLoginAt = new Date();
+    await user.save();
+
     const payload = {
       userId: user._id,
       orgId: user.organizationId,
@@ -153,27 +225,21 @@ exports.loginUser = async (req, res, next) => {
       expiresIn: '7d',
     });
 
-    user.lastLoginAt = new Date();
-    await user.save();
-
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.ENVIRONMENT === 'production',
-      // sameSite: "Strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
-      message: 'Login successful',
+      message: 'OTP Verified Successfully',
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        organizationId: {
-          id: user.organizationId,
-        },
       },
     });
   } catch (err) {
@@ -231,7 +297,11 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
     user.resetPasswordOTPExpires = undefined;
     await user.save();
 
-    res.status(200).json({ message: 'OTP verified successfully' });
+    const resetToken = jwt.sign({ email }, process.env.JWT_RESET_SECRET, {
+      expiresIn: '10m',
+    });
+
+    res.status(200).json({ message: 'OTP verified', resetToken });
   } catch (err) {
     next(err);
   }
@@ -239,23 +309,24 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
 
 exports.resetPassword = async (req, res, next) => {
   try {
-    const { email, newPassword } = req.body;
+    const { resetToken, newPassword } = req.body;
 
-    if (!email || !newPassword) {
-      throw new AppError('Email and new password are required', 400);
+    if (!resetToken || !newPassword) {
+      throw new AppError('Reset token and new password are required', 400);
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      throw new AppError('User not found', 404);
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, process.env.JWT_RESET_SECRET);
+    } catch (err) {
+      console.error('error :', err);
+      throw new AppError('Invalid or expired reset token', 401);
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const user = await User.findOne({ email: decoded.email });
+    if (!user) throw new AppError('User not found', 404);
 
-    user.password = hashedPassword;
-    user.resetPasswordOTP = undefined;
-    user.resetPasswordOTPExpires = undefined;
-
+    user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     res.status(200).json({
@@ -289,44 +360,54 @@ exports.logoutUser = async (req, res) => {
 };
 
 exports.resendOTP = async (req, res, next) => {
-  const { email } = req.body;
-  if (!email) return next(new AppError('Email is required', 400));
+  try {
+    const { tempToken } = req.body;
+    if (!tempToken) return next(new AppError('tempToken is required', 400));
 
-  const user = await User.findOne({ email });
-  if (!user) return next(new AppError('User not found', 404));
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch (err) {
+      console.error('error :', err);
+      return next(new AppError('Invalid or expired tempToken', 401));
+    }
 
-  const now = new Date();
-  if (user.resendOtpCooldown && now - user.resendOtpCooldown < 60000) {
-    const secondsLeft = Math.ceil(
-      (60000 - (now - user.resendOtpCooldown)) / 1000
-    );
-    return next(
-      new AppError(
-        `Please wait ${secondsLeft}s before requesting a new OTP.`,
-        429
-      )
-    );
+    const user = await User.findById(decoded.userId);
+    if (!user) return next(new AppError('User not found', 404));
+
+    const now = new Date();
+    if (user.resendOtpCooldown && now - user.resendOtpCooldown < 60000) {
+      const secondsLeft = Math.ceil(
+        (60000 - (now - user.resendOtpCooldown)) / 1000
+      );
+      return next(
+        new AppError(
+          `Please wait ${secondsLeft}s before requesting a new OTP.`,
+          429
+        )
+      );
+    }
+
+    const otp = generateOtp();
+    user.otp = otp;
+    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
+    user.resendOtpCooldown = now;
+    await user.save();
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify Your Email - OTP',
+      html: getPasswordResetOTPTemplate(otp),
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP resent successfully',
+    });
+  } catch (err) {
+    next(err);
   }
-
-  const otp = crypto.randomInt(100000, 999999).toString();
-
-  user.emailVerificationOTP = otp;
-  user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // valid for 10 mins
-  user.resendOtpCooldown = now;
-  await user.save();
-
-  await sendEmail({
-    to: user.email,
-    subject: 'Verify Your Email - OTP',
-    html: getPasswordResetOTPTemplate(otp),
-  });
-
-  res.status(200).json({
-    success: true,
-    message: 'OTP resent successfully',
-  });
 };
-
 exports.resendVerificationEmail = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -360,7 +441,7 @@ exports.resendVerificationEmail = async (req, res, next) => {
 
     const token = generateVerificationToken(user._id);
 
-    const link = `auth.norvor.com/verify-email?token=${token}`;
+    const link = `${process.env.CONFIRM_EMAIL_URL}?token=${token}`;
 
     await sendEmail({
       to: user.email,
@@ -451,5 +532,175 @@ exports.getUserById = async (req, res, next) => {
     return res.status(200).json({ user });
   } catch (error) {
     next(error);
+  }
+};
+
+exports.getUserByEmail = async (req, res, next) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return next(new AppError('Email is required', 400));
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(200).json({ user: null }); // For cross-service use
+  }
+
+  return res.status(200).json({
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
+  });
+};
+
+exports.updateUserProfile = async (req, res, next) => {
+  try {
+    const _id = req.user._id;
+
+    const updated = await User.findOneAndUpdate(
+      { _id },
+      { $set: req.body },
+      { new: true }
+    );
+
+    if (!updated) {
+      return next(new AppError('User profile not found.', 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'User profile updated successfully.',
+      updated,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.uploadProfilePicture = async (req, res, next) => {
+  try {
+    const _id = req.user._id;
+    if (!req.file) {
+      return next(new AppError('No file uploaded.', 400));
+    }
+
+    const imageUrl = await uploadImage(
+      req.file.buffer,
+      _id,
+      req.file.originalname
+    );
+
+    const profile = await User.findOneAndUpdate(
+      { _id },
+      { profileImageURL: imageUrl },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile image uploaded successfully.',
+      profile,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.downloadImage = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    if (!userId) {
+      return next(new AppError('User ID is required.', 400));
+    }
+
+    const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    let foundKey = null;
+
+    for (const ext of extensions) {
+      const key = `user/profilepics/${userId}${ext}`;
+      try {
+        await s3.headObject({ Bucket: 'norvorcrm', Key: key }).promise();
+        foundKey = key;
+        break;
+      } catch (err) {
+        console.error('error :', err);
+      }
+    }
+
+    if (!foundKey) {
+      return next(new AppError('Image not found.', 404));
+    }
+
+    const stream = s3
+      .getObject({ Bucket: 'norvorcrm', Key: foundKey })
+      .createReadStream();
+    res.setHeader('Content-Type', 'image/jpeg');
+    stream.pipe(res);
+  } catch (err) {
+    console.error('Error downloading image:', err);
+    res.status(500).json({
+      success: true,
+      message: 'Failed to download image.',
+    });
+  }
+};
+
+exports.changePassword = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new AppError('User not found.', 404));
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return next(new AppError('Current password is incorrect.', 400));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password changed successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateRecoveryEmail = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { recoveryEmail } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { recoveryEmail } },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return next(new AppError('User not found.', 404));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Recovery email updated successfully.',
+      user,
+    });
+  } catch (err) {
+    next(err);
   }
 };
