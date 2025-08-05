@@ -1,8 +1,8 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
-const generateVerificationToken = (userId) => {
+const generateVerificationToken = userId => {
   return jwt.sign({ userId }, process.env.EMAIL_VERIFICATION_SECRET, {
-    expiresIn: "1h",
+    expiresIn: '1h',
   });
 };
 

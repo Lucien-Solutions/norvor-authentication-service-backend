@@ -1,22 +1,19 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
 const {
   loginUser,
-  logoutUser,
-  getMe,
   registerUser,
   verifyEmail,
   requestPasswordReset,
   verifyPasswordResetOTP,
   resetPassword,
-  testEmail,
   resendVerificationEmail,
   resendOTP,
   refreshAuthToken,
   getUserById,
-} = require("../controllers/authController");
-const validateRequest = require("../validators/validateRequest");
+} = require('../controllers/authController');
+const validateRequest = require('../validators/validateRequest');
 const {
   registerValidator,
   verifyEmailValidator,
@@ -26,7 +23,7 @@ const {
   resetPasswordValidator,
   requestEmailVerficationValidator,
   resendOtpValidator,
-} = require("../validators/authValidators");
+} = require('../validators/authValidators');
 
 /**
  * @swagger
@@ -66,7 +63,7 @@ const {
  *       409:
  *         description: User already exists
  */
-router.post("/register", validateRequest(registerValidator), registerUser);
+router.post('/register', validateRequest(registerValidator), registerUser);
 
 /**
  * @swagger
@@ -92,7 +89,7 @@ router.post("/register", validateRequest(registerValidator), registerUser);
  *         description: Validation error
  */
 router.post(
-  "/verify-email",
+  '/verify-email',
   validateRequest(verifyEmailValidator),
   verifyEmail
 );
@@ -128,7 +125,7 @@ router.post(
  *       400:
  *         description: Missing fields or invalid credentials
  */
-router.post("/login", validateRequest(loginValidator), loginUser);
+router.post('/login', validateRequest(loginValidator), loginUser);
 
 /**
  * @swagger
@@ -154,7 +151,7 @@ router.post("/login", validateRequest(loginValidator), loginUser);
  *         description: Invalid email or user not found
  */
 router.post(
-  "/request-password-reset",
+  '/request-password-reset',
   validateRequest(requestPasswordResetValidator),
   requestPasswordReset
 );
@@ -186,7 +183,7 @@ router.post(
  *         description: Invalid or expired OTP
  */
 router.post(
-  "/verify-password-reset-otp",
+  '/verify-password-reset-otp',
   validateRequest(verifyResetOTPValidator),
   verifyPasswordResetOTP
 );
@@ -218,7 +215,7 @@ router.post(
  *         description: Validation error
  */
 router.post(
-  "/reset-password",
+  '/reset-password',
   validateRequest(resetPasswordValidator),
   resetPassword
 );
@@ -248,7 +245,7 @@ router.post(
  *       429:
  *         description: Too many requests - wait before trying again
  */
-router.post("/resend-otp", validateRequest(resendOtpValidator), resendOTP);
+router.post('/resend-otp', validateRequest(resendOtpValidator), resendOTP);
 
 /**
  * @swagger
@@ -279,7 +276,7 @@ router.post("/resend-otp", validateRequest(resendOtpValidator), resendOTP);
  *         description: Too many requests - wait before trying again
  */
 router.post(
-  "/resend-account-verification-link",
+  '/resend-account-verification-link',
   validateRequest(requestEmailVerficationValidator),
   resendVerificationEmail
 );
@@ -310,7 +307,7 @@ router.post(
  *       403:
  *         description: Invalid or expired refresh token
  */
-router.post("/refresh-token", refreshAuthToken);
+router.post('/refresh-token', refreshAuthToken);
 
 /**
  * @swagger
@@ -360,6 +357,6 @@ router.post("/refresh-token", refreshAuthToken);
  *       404:
  *         description: User not found
  */
-router.get("/user/:id", getUserById);
+router.get('/user/:id', getUserById);
 
 module.exports = router;

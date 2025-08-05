@@ -1,11 +1,11 @@
 // models/Organization.js
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const ModuleAccessSchema = new mongoose.Schema(
   {
     module: {
       type: String,
-      enum: ["crm", "pm", "hr"],
+      enum: ['crm', 'pm', 'hr'],
       required: true,
     },
     isActive: {
@@ -30,7 +30,7 @@ const OrganizationSchema = new mongoose.Schema(
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
     },
     isActive: {
       type: Boolean,
@@ -67,4 +67,4 @@ const OrganizationSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Organization", OrganizationSchema);
+module.exports = mongoose.model('Organization', OrganizationSchema);

@@ -1,12 +1,12 @@
 // models/User.js
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const LoginMethodSchema = new mongoose.Schema(
   {
     provider: {
       type: String,
-      enum: ["password", "google", "github"],
-      default: "password",
+      enum: ['password', 'google', 'github'],
+      default: 'password',
     },
     providerId: String,
   },
@@ -30,13 +30,13 @@ const UserSchema = new mongoose.Schema(
       required: function () {
         return (
           !this.loginMethod?.provider ||
-          this.loginMethod.provider === "password"
+          this.loginMethod.provider === 'password'
         );
       },
     },
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Organization",
+      ref: 'Organization',
     },
 
     // // Reference to custom role
@@ -51,8 +51,8 @@ const UserSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "inactive", "invited", "suspended"],
-      default: "invited",
+      enum: ['active', 'inactive', 'invited', 'suspended'],
+      default: 'invited',
     },
 
     loginMethod: LoginMethodSchema,
@@ -77,4 +77,4 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("User", UserSchema);
+module.exports = mongoose.model('User', UserSchema);
