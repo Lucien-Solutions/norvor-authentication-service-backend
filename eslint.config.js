@@ -4,7 +4,7 @@ const prettier = require('eslint-plugin-prettier');
 
 /** @type {import("eslint").Linter.FlatConfig[]} */
 module.exports = [
-  js.configs.recommended, // base JS rules
+  js.configs.recommended,
 
   {
     files: ['**/*.{js,mjs,cjs}'],
