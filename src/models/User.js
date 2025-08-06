@@ -41,17 +41,6 @@ const UserSchema = new mongoose.Schema(
         );
       },
     },
-    organizationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
-    },
-
-    // // Reference to custom role
-    // roleId: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: "Role",
-    //   required: true,
-    // },
     isEmailVerified: {
       type: Boolean,
       default: false,

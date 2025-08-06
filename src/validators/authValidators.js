@@ -18,7 +18,6 @@ exports.registerValidator = Joi.object({
       .required(),
     otherwise: Joi.optional(),
   }),
-  organizationInviteToken: Joi.string().optional().allow(null, ''),
   loginMethod: Joi.object({
     provider: Joi.string()
       .valid('password', 'google', 'facebook', 'apple')

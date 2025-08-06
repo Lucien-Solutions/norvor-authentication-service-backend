@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const { generateVerificationToken } = require('../utils/token');
+const { generateVerificationToken, generateTokens } = require('../utils/token');
 const { sendEmail } = require('../utils');
 const AppError = require('../utils/AppError');
 const crypto = require('crypto');
@@ -24,10 +24,6 @@ exports.registerUser = async (req, res, next) => {
       password,
       loginMethod = { provider: 'password' },
     } = req.body;
-
-    if (!email || (!password && loginMethod.provider === 'password')) {
-      return next(new AppError('Missing required fields.', 400));
-    }
 
     const existingUser = await User.findOne({ email });
 
@@ -58,15 +54,6 @@ exports.registerUser = async (req, res, next) => {
       isEmailVerified: false,
     };
 
-    // OPTIONAL: Invite flow for organization
-    // if (organizationInviteToken) {
-    //   const inviteData = await validateOrgInvite(organizationInviteToken);
-    //   if (!inviteData) return next(new AppError("Invalid or expired invite.", 400));
-    //   newUserData.organizationId = inviteData.organizationId;
-    //   newUserData.roleId = inviteData.roleId;
-    //   newUserData.status = "active";
-    // }
-
     const newUser = new User(newUserData);
     await newUser.save();
 
@@ -93,8 +80,6 @@ exports.registerUser = async (req, res, next) => {
 exports.verifyEmail = async (req, res, next) => {
   const { token } = req.body;
 
-  if (!token) return next(new AppError('Token is required', 400));
-
   try {
     const decoded = jwt.verify(token, process.env.EMAIL_VERIFICATION_SECRET);
     const user = await User.findById(decoded.userId);
@@ -118,10 +103,6 @@ exports.verifyEmail = async (req, res, next) => {
 exports.loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      throw new AppError('Email and password are required', 400);
-    }
 
     const user = await User.findOne({ email });
 
@@ -178,10 +159,6 @@ exports.verifyLoginOtp = async (req, res, next) => {
   try {
     const { tempToken, otp } = req.body;
 
-    if (!tempToken || !otp) {
-      throw new AppError('Temp token and OTP are required', 400);
-    }
-
     let decoded;
     try {
       decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
@@ -217,13 +194,7 @@ exports.verifyLoginOtp = async (req, res, next) => {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
-      expiresIn: '15m',
-    });
-
-    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
-      expiresIn: '7d',
-    });
+    const { accessToken, refreshToken } = generateTokens(payload);
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
@@ -251,8 +222,6 @@ exports.requestPasswordReset = async (req, res, next) => {
   try {
     const { email } = req.body;
 
-    if (!email) throw new AppError('Email is required', 400);
-
     const user = await User.findOne({ email });
     if (!user) throw new AppError('User with this email does not exist', 404);
 
@@ -279,8 +248,6 @@ exports.requestPasswordReset = async (req, res, next) => {
 exports.verifyPasswordResetOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
-
-    if (!email || !otp) throw new AppError('Email and OTP are required', 400);
 
     const user = await User.findOne({ email });
     if (!user) throw new AppError('User not found', 404);
@@ -310,10 +277,6 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
 exports.resetPassword = async (req, res, next) => {
   try {
     const { resetToken, newPassword } = req.body;
-
-    if (!resetToken || !newPassword) {
-      throw new AppError('Reset token and new password are required', 400);
-    }
 
     let decoded;
     try {
@@ -362,7 +325,6 @@ exports.logoutUser = async (req, res) => {
 exports.resendOTP = async (req, res, next) => {
   try {
     const { tempToken } = req.body;
-    if (!tempToken) return next(new AppError('tempToken is required', 400));
 
     let decoded;
     try {
@@ -411,10 +373,6 @@ exports.resendOTP = async (req, res, next) => {
 exports.resendVerificationEmail = async (req, res, next) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return next(new AppError('Email is required', 400));
-    }
 
     const user = await User.findOne({ email });
 
@@ -487,27 +445,6 @@ exports.refreshAuthToken = async (req, res, next) => {
           process.env.ACCESS_TOKEN_SECRET,
           { expiresIn: '15m' }
         );
-
-        // Re-issue refresh token for rotation strategy
-        // const newRefreshToken = jwt.sign(
-        //   { userId: user._id },
-        //   process.env.REFRESH_TOKEN_SECRET,
-        //   { expiresIn: "7d" }
-        // );
-        // res.cookie("refreshToken", newRefreshToken, {
-        //   httpOnly: true,
-        //   secure: process.env.NODE_ENV === "production",
-        //   sameSite: "Strict",
-        //   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        // });
-
-        // Set new access token in cookie
-        // res.cookie("accessToken", newAccessToken, {
-        //   httpOnly: true,
-        //   secure: process.env.NODE_ENV === "production",
-        //   sameSite: "Strict",
-        //   maxAge: 15 * 60 * 1000, // 15 mins
-        // });
 
         res
           .status(200)

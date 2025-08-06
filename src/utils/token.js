@@ -6,4 +6,15 @@ const generateVerificationToken = userId => {
   });
 };
 
-module.exports = { generateVerificationToken };
+function generateTokens(payload) {
+  const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: '15m',
+  });
+
+  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: '7d',
+  });
+
+  return { accessToken, refreshToken };
+}
+module.exports = { generateVerificationToken, generateTokens };
