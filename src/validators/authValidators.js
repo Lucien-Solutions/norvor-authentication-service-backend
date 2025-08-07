@@ -1,29 +1,28 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 exports.registerValidator = Joi.object({
   name: Joi.string().min(2).max(100).optional(),
   email: Joi.string().email().required(),
-  password: Joi.when("loginMethod.provider", {
-    is: "password",
+  password: Joi.when('loginMethod.provider', {
+    is: 'password',
     then: Joi.string()
       .min(8)
       .pattern(
         new RegExp(
-          "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-={};':\"|,.<>/?]).+$"
+          '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-={};\':"|,.<>/?]).+$'
         )
       )
       .message(
-        "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character"
+        'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character'
       )
       .required(),
     otherwise: Joi.optional(),
   }),
-  organizationInviteToken: Joi.string().optional().allow(null, ""),
   loginMethod: Joi.object({
     provider: Joi.string()
-      .valid("password", "google", "facebook", "apple")
-      .default("password"),
-  }).default({ provider: "password" }),
+      .valid('password', 'google', 'facebook', 'apple')
+      .default('password'),
+  }).default({ provider: 'password' }),
 });
 
 exports.loginValidator = Joi.object({
@@ -61,8 +60,6 @@ exports.resetPasswordValidator = Joi.object({
   newPassword: Joi.string().min(6).required(),
 });
 
-
-
 exports.updateUserProfileValidator = Joi.object({
   name: Joi.string().min(2).max(100).optional(),
   email: Joi.string().email().optional(),
@@ -70,22 +67,25 @@ exports.updateUserProfileValidator = Joi.object({
     .pattern(/^[0-9+\-\s()]{6,20}$/)
     .optional()
     .messages({
-      "string.pattern.base": "Phone number must be a valid format",
+      'string.pattern.base': 'Phone number must be a valid format',
     }),
   profileImageURL: Joi.string().uri().optional(),
   organizationId: Joi.string().hex().length(24).optional(), // assuming MongoDB ObjectId
   status: Joi.string()
-    .valid("active", "inactive", "invited", "suspended")
+    .valid('active', 'inactive', 'invited', 'suspended')
     .optional(),
 });
 
 exports.changePasswordValidator = Joi.object({
   currentPassword: Joi.string().required(),
   newPassword: Joi.string().min(6).required(),
-  confirmNewPassword: Joi.string().valid(Joi.ref("newPassword")).required().messages({
-    "any.only": "Confirm password must match new password.",
-  }),
-})
+  confirmNewPassword: Joi.string()
+    .valid(Joi.ref('newPassword'))
+    .required()
+    .messages({
+      'any.only': 'Confirm password must match new password.',
+    }),
+});
 
 exports.recoveryEmailValidator = Joi.object({
   recoveryEmail: Joi.string().email().required(),

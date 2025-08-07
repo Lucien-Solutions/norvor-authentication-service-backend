@@ -1,6 +1,5 @@
-const AWS = require("aws-sdk");
-const { v4: uuidv4 } = require("uuid");
-const path = require("path");
+const AWS = require('aws-sdk');
+const path = require('path');
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -21,7 +20,7 @@ exports.uploadImage = async (fileBuffer, userId, originalFileName) => {
     Key: key,
     Body: fileBuffer,
     ContentType: getContentType(ext),
-    ACL: "public-read",
+    ACL: 'public-read',
   };
 
   const data = await s3.upload(uploadParams).promise();
@@ -30,11 +29,11 @@ exports.uploadImage = async (fileBuffer, userId, originalFileName) => {
 
 function getContentType(ext) {
   const types = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
   };
-  return types[ext.toLowerCase()] || "application/octet-stream";
+  return types[ext.toLowerCase()] || 'application/octet-stream';
 }

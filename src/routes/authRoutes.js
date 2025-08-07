@@ -1,16 +1,13 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
 const {
   loginUser,
-  logoutUser,
-  getMe,
   registerUser,
   verifyEmail,
   requestPasswordReset,
   verifyPasswordResetOTP,
   resetPassword,
-  testEmail,
   resendVerificationEmail,
   resendOTP,
   refreshAuthToken,
@@ -21,9 +18,9 @@ const {
   uploadProfilePicture,
   changePassword,
   updateRecoveryEmail,
-  verifyLoginOtp
-} = require("../controllers/authController");
-const validateRequest = require("../validators/validateRequest");
+  verifyLoginOtp,
+} = require('../controllers/authController');
+const validateRequest = require('../validators/validateRequest');
 const {
   registerValidator,
   verifyEmailValidator,
@@ -36,10 +33,10 @@ const {
   updateUserProfileValidator,
   changePasswordValidator,
   recoveryEmailValidator,
-  verifyLoginOtpValidator
-} = require("../validators/authValidators");
-const upload = require("../middlewares/upload");
-const { verifyJWT } = require("../middlewares/authMiddleware");
+  verifyLoginOtpValidator,
+} = require('../validators/authValidators');
+const upload = require('../middlewares/upload');
+const { verifyJWT } = require('../middlewares/authMiddleware');
 
 /**
  * @swagger
@@ -79,7 +76,7 @@ const { verifyJWT } = require("../middlewares/authMiddleware");
  *       409:
  *         description: User already exists
  */
-router.post("/register", validateRequest(registerValidator), registerUser);
+router.post('/register', validateRequest(registerValidator), registerUser);
 
 /**
  * @swagger
@@ -105,7 +102,7 @@ router.post("/register", validateRequest(registerValidator), registerUser);
  *         description: Validation error
  */
 router.post(
-  "/verify-email",
+  '/verify-email',
   validateRequest(verifyEmailValidator),
   verifyEmail
 );
@@ -141,7 +138,7 @@ router.post(
  *       400:
  *         description: Missing fields or invalid credentials
  */
-router.post("/login", validateRequest(loginValidator), loginUser);
+router.post('/login', validateRequest(loginValidator), loginUser);
 
 /**
  * @swagger
@@ -179,8 +176,11 @@ router.post("/login", validateRequest(loginValidator), loginUser);
  *         description: User not found
  */
 
-
-router.post("/login-verify", validateRequest(verifyLoginOtpValidator),verifyLoginOtp);
+router.post(
+  '/login-verify',
+  validateRequest(verifyLoginOtpValidator),
+  verifyLoginOtp
+);
 
 /**
  * @swagger
@@ -206,7 +206,7 @@ router.post("/login-verify", validateRequest(verifyLoginOtpValidator),verifyLogi
  *         description: Invalid email or user not found
  */
 router.post(
-  "/request-password-reset",
+  '/request-password-reset',
   validateRequest(requestPasswordResetValidator),
   requestPasswordReset
 );
@@ -254,7 +254,7 @@ router.post(
  */
 
 router.post(
-  "/verify-password-reset-otp",
+  '/verify-password-reset-otp',
   validateRequest(verifyResetOTPValidator),
   verifyPasswordResetOTP
 );
@@ -301,7 +301,7 @@ router.post(
  */
 
 router.post(
-  "/reset-password",
+  '/reset-password',
   validateRequest(resetPasswordValidator),
   resetPassword
 );
@@ -331,7 +331,7 @@ router.post(
  *       429:
  *         description: Too many requests - wait before trying again
  */
-router.post("/resend-otp", validateRequest(resendOtpValidator), resendOTP);
+router.post('/resend-otp', validateRequest(resendOtpValidator), resendOTP);
 
 /**
  * @swagger
@@ -362,7 +362,7 @@ router.post("/resend-otp", validateRequest(resendOtpValidator), resendOTP);
  *         description: Too many requests - wait before trying again
  */
 router.post(
-  "/resend-account-verification-link",
+  '/resend-account-verification-link',
   validateRequest(requestEmailVerficationValidator),
   resendVerificationEmail
 );
@@ -393,7 +393,7 @@ router.post(
  *       403:
  *         description: Invalid or expired refresh token
  */
-router.post("/refresh-token", refreshAuthToken);
+router.post('/refresh-token', refreshAuthToken);
 
 /**
  * @swagger
@@ -526,7 +526,6 @@ router.post("/refresh-token", refreshAuthToken);
  *         description: User profile not found
  */
 
-
 /**
  * @swagger
  * /auth/upload-profile-image:
@@ -595,7 +594,6 @@ router.post("/refresh-token", refreshAuthToken);
  *         description: Internal server error
  */
 
-
 /**
  * @swagger
  * /auth/download-profile-image:
@@ -659,7 +657,6 @@ router.post("/refresh-token", refreshAuthToken);
  *         description: Internal server error
  */
 
-
 /**
  * @swagger
  * /auth/update-recovery-email:
@@ -714,28 +711,33 @@ router.post("/refresh-token", refreshAuthToken);
  *         description: Internal server error
  */
 
-
-router.get("/get-user-by-email/:email", getUserByEmail);
-router.get("/user/:id", getUserById);
-router.patch("/update-profile",validateRequest(updateUserProfileValidator),verifyJWT, updateUserProfile);
-router.patch("/upload-profile-image",verifyJWT, upload.single("image"), uploadProfilePicture);
-router.get(
-  "/download-profile-image",verifyJWT,
-  downloadImage
+router.get('/get-user-by-email/:email', getUserByEmail);
+router.get('/user/:id', getUserById);
+router.patch(
+  '/update-profile',
+  validateRequest(updateUserProfileValidator),
+  verifyJWT,
+  updateUserProfile
 );
 router.patch(
-  "/change-password",
+  '/upload-profile-image',
+  verifyJWT,
+  upload.single('image'),
+  uploadProfilePicture
+);
+router.get('/download-profile-image', verifyJWT, downloadImage);
+router.patch(
+  '/change-password',
   validateRequest(changePasswordValidator),
   verifyJWT,
   changePassword
 );
 
 router.patch(
-  "/update-recovery-email",
+  '/update-recovery-email',
   validateRequest(recoveryEmailValidator),
   verifyJWT,
   updateRecoveryEmail
 );
-
 
 module.exports = router;

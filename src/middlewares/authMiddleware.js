@@ -1,14 +1,14 @@
-const { default: axios } = require("axios");
-const AppError = require("../utils/AppError");
-const jwt = require("jsonwebtoken");
+const { default: axios } = require('axios');
+const AppError = require('../utils/AppError');
+const jwt = require('jsonwebtoken');
 
 exports.verifyJWT = async (req, res, next) => {
   const token =
     req.cookies?.accessToken ||
-    req.header("Authorization")?.replace("Bearer ", "");
+    req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
-    throw new AppError("Unauthorized request", 401);
+    throw new AppError('Unauthorized request', 401);
   }
 
   try {
@@ -19,13 +19,13 @@ exports.verifyJWT = async (req, res, next) => {
     if (!response) {
       // Client should make a request to /api/v1/users/refresh-token if they have refreshToken present in their cookie
       // Then they will get a new access token which will allow them to refresh the access token without logging out the user
-      throw new AppError("Invalid access token", 401);
+      throw new AppError('Invalid access token', 401);
     }
     req.user = response.data.user;
     next();
   } catch (error) {
     // Client should make a request to /api/v1/users/refresh-token if they have refreshToken present in their cookie
     // Then they will get a new access token which will allow them to refresh the access token without logging out the user
-    throw new AppError(error?.message || "Invalid access token", 401);
+    throw new AppError(error?.message || 'Invalid access token', 401);
   }
 };

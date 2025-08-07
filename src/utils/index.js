@@ -3,7 +3,7 @@ const ses = new AWS.SES({ apiVersion: '2010-12-01' });
 
 async function sendEmail({ to, subject, html }) {
   const params = {
-    Source: "Norvor <noreply@norvor.com>",
+    Source: 'Norvor <noreply@norvor.com>',
     Destination: {
       ToAddresses: [to],
     },
@@ -29,4 +29,4 @@ async function sendEmail({ to, subject, html }) {
   }
 }
 
-module.exports = {sendEmail};
+module.exports = { sendEmail };

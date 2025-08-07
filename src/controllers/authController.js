@@ -1,16 +1,16 @@
-const bcrypt = require("bcryptjs");
-const User = require("../models/User");
-const jwt = require("jsonwebtoken");
-const { generateVerificationToken } = require("../utils/token");
-const { sendEmail } = require("../utils");
-const AppError = require("../utils/AppError");
-const crypto = require("crypto");
-const { uploadImage,s3 } = require("../utils/s3Upload");
+const bcrypt = require('bcryptjs');
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const { generateVerificationToken, generateTokens } = require('../utils/token');
+const { sendEmail } = require('../utils');
+const AppError = require('../utils/AppError');
+const crypto = require('crypto');
+const { uploadImage, s3 } = require('../utils/s3Upload');
 const {
   getPasswordResetOTPTemplate,
   emailVerificationTemplate,
-  getVerifyOTPTemplate
-} = require("../utils/emailTemplates");
+  getVerifyOTPTemplate,
+} = require('../utils/emailTemplates');
 
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -22,31 +22,26 @@ exports.registerUser = async (req, res, next) => {
       name,
       email,
       password,
-      organizationInviteToken = null,
-      loginMethod = { provider: "password" },
+      loginMethod = { provider: 'password' },
     } = req.body;
-
-    if (!email || (!password && loginMethod.provider === "password")) {
-      return next(new AppError("Missing required fields.", 400));
-    }
 
     const existingUser = await User.findOne({ email });
 
     if (existingUser && existingUser.isEmailVerified) {
-      return next(new AppError("User already exists. Please log in.", 409));
+      return next(new AppError('User already exists. Please log in.', 409));
     }
 
     if (existingUser && !existingUser.isEmailVerified) {
       return next(
         new AppError(
-          "User already registered but not verified. Please verify email.",
+          'User already registered but not verified. Please verify email.',
           409
         )
       );
     }
 
     let hashedPassword = null;
-    if (loginMethod.provider === "password") {
+    if (loginMethod.provider === 'password') {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
@@ -55,18 +50,9 @@ exports.registerUser = async (req, res, next) => {
       email,
       password: hashedPassword,
       loginMethod,
-      status: "invited", // Default unless updated by invite logic
+      status: 'invited', // Default unless updated by invite logic
       isEmailVerified: false,
     };
-
-    // OPTIONAL: Invite flow for organization
-    // if (organizationInviteToken) {
-    //   const inviteData = await validateOrgInvite(organizationInviteToken);
-    //   if (!inviteData) return next(new AppError("Invalid or expired invite.", 400));
-    //   newUserData.organizationId = inviteData.organizationId;
-    //   newUserData.roleId = inviteData.roleId;
-    //   newUserData.status = "active";
-    // }
 
     const newUser = new User(newUserData);
     await newUser.save();
@@ -77,42 +63,40 @@ exports.registerUser = async (req, res, next) => {
 
     await sendEmail({
       to: newUser.email,
-      subject: "Norvor Account Verification",
+      subject: 'Norvor Account Verification',
       html: emailVerificationTemplate(link),
     });
 
     return res.status(201).json({
-      message: "Registration successful. Please verify your email.",
+      message: 'Registration successful. Please verify your email.',
       userId: newUser._id,
     });
   } catch (error) {
-    console.error("[Register Error]", error);
-    return next(new AppError("Internal server error", 500));
+    console.error('[Register Error]', error);
+    return next(new AppError('Internal server error', 500));
   }
 };
 
 exports.verifyEmail = async (req, res, next) => {
   const { token } = req.body;
 
-  if (!token) return next(new AppError("Token is required", 400));
-
   try {
     const decoded = jwt.verify(token, process.env.EMAIL_VERIFICATION_SECRET);
     const user = await User.findById(decoded.userId);
 
-    if (!user) return next(new AppError("User not found", 404));
+    if (!user) return next(new AppError('User not found', 404));
     if (user.isEmailVerified) {
-      return res.status(200).json({ message: "Email already verified" });
+      return res.status(200).json({ message: 'Email already verified' });
     }
 
     user.isEmailVerified = true;
-    user.status = "active";
+    user.status = 'active';
     await user.save();
 
-    return res.status(200).json({ message: "Email verified successfully" });
+    return res.status(200).json({ message: 'Email verified successfully' });
   } catch (err) {
-    console.error("JWT verification error:", err);
-    return next(new AppError("Invalid or expired token", 400));
+    console.error('JWT verification error:', err);
+    return next(new AppError('Invalid or expired token', 400));
   }
 };
 
@@ -120,54 +104,50 @@ exports.loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      throw new AppError("Email and password are required", 400);
-    }
-
     const user = await User.findOne({ email });
 
     if (!user) {
-      throw new AppError("Invalid email or password", 404);
+      throw new AppError('Invalid email or password', 404);
     }
 
     if (!user.isEmailVerified) {
       throw new AppError(
-        "Email is not verified. Please verify your email first.",
+        'Email is not verified. Please verify your email first.',
         403
       );
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new AppError("Invalid email or password", 401);
+      throw new AppError('Invalid email or password', 401);
     }
 
-    if (user.status !== "active") {
-      throw new AppError("User account is inactive. Contact support.", 403);
+    if (user.status !== 'active') {
+      throw new AppError('User account is inactive. Contact support.', 403);
     }
 
     const otp = generateOtp();
     user.otp = otp;
-    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); 
+    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
     const tempToken = jwt.sign(
       {
         userId: user._id,
-        type: "TEMP",
+        type: 'TEMP',
       },
       process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: '10m' }
     );
 
     await sendEmail({
       to: user.email,
-      subject: "Verify OTP Request",
+      subject: 'Verify OTP Request',
       html: getVerifyOTPTemplate(otp),
     });
 
     res.status(200).json({
-      message: "OTP sent to your email successfully.",
+      message: 'OTP sent to your email successfully.',
       tempToken,
     });
   } catch (err) {
@@ -179,23 +159,20 @@ exports.verifyLoginOtp = async (req, res, next) => {
   try {
     const { tempToken, otp } = req.body;
 
-    if (!tempToken || !otp) {
-      throw new AppError("Temp token and OTP are required", 400);
-    }
-
     let decoded;
     try {
       decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
     } catch (err) {
-      throw new AppError("Invalid or expired temp token", 401);
+      console.error('error :', err);
+      throw new AppError('Invalid or expired temp token', 401);
     }
 
     const { userId } = decoded;
 
-    const user = await User.findById({ _id:userId });
+    const user = await User.findById({ _id: userId });
 
     if (!user) {
-      throw new AppError("User not found", 404);
+      throw new AppError('User not found', 404);
     }
 
     if (
@@ -203,7 +180,7 @@ exports.verifyLoginOtp = async (req, res, next) => {
       !user.resetPasswordOTPExpires ||
       new Date() > user.resetPasswordOTPExpires
     ) {
-      throw new AppError("Invalid or expired OTP", 401);
+      throw new AppError('Invalid or expired OTP', 401);
     }
 
     user.otp = undefined;
@@ -217,22 +194,16 @@ exports.verifyLoginOtp = async (req, res, next) => {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
-      expiresIn: "15m",
-    });
+    const { accessToken, refreshToken } = generateTokens(payload);
 
-    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
-      expiresIn: "7d",
-    });
-
-    res.cookie("refreshToken", refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.ENVIRONMENT === "production",
+      secure: process.env.ENVIRONMENT === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
-      message: "OTP Verified Successfully",
+      message: 'OTP Verified Successfully',
       accessToken,
       refreshToken,
       user: {
@@ -251,14 +222,12 @@ exports.requestPasswordReset = async (req, res, next) => {
   try {
     const { email } = req.body;
 
-    if (!email) throw new AppError("Email is required", 400);
-
     const user = await User.findOne({ email });
-    if (!user) throw new AppError("User with this email does not exist", 404);
+    if (!user) throw new AppError('User with this email does not exist', 404);
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
 
     user.resetPasswordOTP = hashedOtp;
     user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
@@ -266,11 +235,11 @@ exports.requestPasswordReset = async (req, res, next) => {
 
     await sendEmail({
       to: email,
-      subject: "Password Reset OTP",
+      subject: 'Password Reset OTP',
       html: getPasswordResetOTPTemplate(otp),
     });
 
-    res.status(200).json({ message: "OTP sent to your email" });
+    res.status(200).json({ message: 'OTP sent to your email' });
   } catch (err) {
     next(err);
   }
@@ -280,30 +249,26 @@ exports.verifyPasswordResetOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
-    if (!email || !otp) throw new AppError("Email and OTP are required", 400);
-
     const user = await User.findOne({ email });
-    if (!user) throw new AppError("User not found", 404);
+    if (!user) throw new AppError('User not found', 404);
 
-    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
 
     const isOtpValid =
       user.resetPasswordOTP === hashedOtp &&
       user.resetPasswordOTPExpires > Date.now();
 
-    if (!isOtpValid) throw new AppError("Invalid or expired OTP", 400);
+    if (!isOtpValid) throw new AppError('Invalid or expired OTP', 400);
 
     user.resetPasswordOTP = undefined;
     user.resetPasswordOTPExpires = undefined;
     await user.save();
 
-    const resetToken = jwt.sign(
-      { email },
-      process.env.JWT_RESET_SECRET,
-      { expiresIn: "10m" }
-    );
+    const resetToken = jwt.sign({ email }, process.env.JWT_RESET_SECRET, {
+      expiresIn: '10m',
+    });
 
-    res.status(200).json({ message: "OTP verified", resetToken });
+    res.status(200).json({ message: 'OTP verified', resetToken });
   } catch (err) {
     next(err);
   }
@@ -313,25 +278,23 @@ exports.resetPassword = async (req, res, next) => {
   try {
     const { resetToken, newPassword } = req.body;
 
-    if (!resetToken || !newPassword) {
-      throw new AppError("Reset token and new password are required", 400);
-    }
-
     let decoded;
     try {
       decoded = jwt.verify(resetToken, process.env.JWT_RESET_SECRET);
     } catch (err) {
-      throw new AppError("Invalid or expired reset token", 401);
+      console.error('error :', err);
+      throw new AppError('Invalid or expired reset token', 401);
     }
 
     const user = await User.findOne({ email: decoded.email });
-    if (!user) throw new AppError("User not found", 404);
+    if (!user) throw new AppError('User not found', 404);
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     res.status(200).json({
-      message: "Password reset successful. You can now log in with your new password.",
+      message:
+        'Password reset successful. You can now log in with your new password.',
     });
   } catch (err) {
     next(err);
@@ -340,39 +303,39 @@ exports.resetPassword = async (req, res, next) => {
 
 exports.logoutUser = async (req, res) => {
   try {
-    res.clearCookie("accessToken", {
+    res.clearCookie('accessToken', {
       httpOnly: true,
-      secure: process.env.ENVIRONMENT === "production",
+      secure: process.env.ENVIRONMENT === 'production',
       // sameSite: "strict",
     });
 
-    res.clearCookie("refreshToken", {
+    res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.ENVIRONMENT === "production",
+      secure: process.env.ENVIRONMENT === 'production',
       // sameSite: "strict",
     });
 
-    return res.status(200).json({ message: "Logged out successfully" });
+    return res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
-    console.error("Logout Error:", error);
-    return res.status(500).json({ message: "Something went wrong" });
+    console.error('Logout Error:', error);
+    return res.status(500).json({ message: 'Something went wrong' });
   }
 };
 
 exports.resendOTP = async (req, res, next) => {
   try {
     const { tempToken } = req.body;
-    if (!tempToken) return next(new AppError("tempToken is required", 400));
 
     let decoded;
     try {
       decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
     } catch (err) {
-      return next(new AppError("Invalid or expired tempToken", 401));
+      console.error('error :', err);
+      return next(new AppError('Invalid or expired tempToken', 401));
     }
 
     const user = await User.findById(decoded.userId);
-    if (!user) return next(new AppError("User not found", 404));
+    if (!user) return next(new AppError('User not found', 404));
 
     const now = new Date();
     if (user.resendOtpCooldown && now - user.resendOtpCooldown < 60000) {
@@ -389,19 +352,19 @@ exports.resendOTP = async (req, res, next) => {
 
     const otp = generateOtp();
     user.otp = otp;
-    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); 
+    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
     user.resendOtpCooldown = now;
     await user.save();
 
     await sendEmail({
       to: user.email,
-      subject: "Verify Your Email - OTP",
+      subject: 'Verify Your Email - OTP',
       html: getPasswordResetOTPTemplate(otp),
     });
 
     res.status(200).json({
       success: true,
-      message: "OTP resent successfully",
+      message: 'OTP resent successfully',
     });
   } catch (err) {
     next(err);
@@ -411,18 +374,14 @@ exports.resendVerificationEmail = async (req, res, next) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
-      return next(new AppError("Email is required", 400));
-    }
-
     const user = await User.findOne({ email });
 
     if (!user) {
-      return next(new AppError("User not found", 404));
+      return next(new AppError('User not found', 404));
     }
 
     if (user.isEmailVerified) {
-      return next(new AppError("Email is already verified", 400));
+      return next(new AppError('Email is already verified', 400));
     }
 
     const now = new Date();
@@ -444,7 +403,7 @@ exports.resendVerificationEmail = async (req, res, next) => {
 
     await sendEmail({
       to: user.email,
-      subject: "Norvor Account Verification",
+      subject: 'Norvor Account Verification',
       html: emailVerificationTemplate(link),
     });
 
@@ -452,7 +411,7 @@ exports.resendVerificationEmail = async (req, res, next) => {
 
     await user.save();
 
-    res.status(200).json({ message: "Verification email sent successfully" });
+    res.status(200).json({ message: 'Verification email sent successfully' });
   } catch (err) {
     next(err);
   }
@@ -463,7 +422,7 @@ exports.refreshAuthToken = async (req, res, next) => {
     const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {
-      return res.status(401).json({ message: "Refresh token missing" });
+      return res.status(401).json({ message: 'Refresh token missing' });
     }
 
     jwt.verify(
@@ -473,44 +432,23 @@ exports.refreshAuthToken = async (req, res, next) => {
         if (err) {
           return res
             .status(403)
-            .json({ message: "Invalid or expired refresh token" });
+            .json({ message: 'Invalid or expired refresh token' });
         }
 
         const user = await User.findById(decoded.userId);
         if (!user) {
-          return res.status(404).json({ message: "User not found" });
+          return res.status(404).json({ message: 'User not found' });
         }
 
         const newAccessToken = jwt.sign(
           { userId: user._id, email: user.email },
           process.env.ACCESS_TOKEN_SECRET,
-          { expiresIn: "15m" }
+          { expiresIn: '15m' }
         );
-
-        // Re-issue refresh token for rotation strategy
-        // const newRefreshToken = jwt.sign(
-        //   { userId: user._id },
-        //   process.env.REFRESH_TOKEN_SECRET,
-        //   { expiresIn: "7d" }
-        // );
-        // res.cookie("refreshToken", newRefreshToken, {
-        //   httpOnly: true,
-        //   secure: process.env.NODE_ENV === "production",
-        //   sameSite: "Strict",
-        //   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        // });
-
-        // Set new access token in cookie
-        // res.cookie("accessToken", newAccessToken, {
-        //   httpOnly: true,
-        //   secure: process.env.NODE_ENV === "production",
-        //   sameSite: "Strict",
-        //   maxAge: 15 * 60 * 1000, // 15 mins
-        // });
 
         res
           .status(200)
-          .json({ message: "Token refreshed", accessToken: newAccessToken });
+          .json({ message: 'Token refreshed', accessToken: newAccessToken });
       }
     );
   } catch (err) {
@@ -522,10 +460,10 @@ exports.getUserById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const user = await User.findById(id).select("-password"); // exclude password
+    const user = await User.findById(id).select('-password'); // exclude password
 
     if (!user) {
-      return next(new AppError("User not found", 404));
+      return next(new AppError('User not found', 404));
     }
 
     return res.status(200).json({ user });
@@ -538,7 +476,7 @@ exports.getUserByEmail = async (req, res, next) => {
   const { email } = req.params;
 
   if (!email) {
-    return next(new AppError("Email is required", 400));
+    return next(new AppError('Email is required', 400));
   }
 
   const user = await User.findOne({ email });
@@ -559,7 +497,7 @@ exports.getUserByEmail = async (req, res, next) => {
 
 exports.updateUserProfile = async (req, res, next) => {
   try {
-    const _id= req.user._id
+    const _id = req.user._id;
 
     const updated = await User.findOneAndUpdate(
       { _id },
@@ -568,27 +506,31 @@ exports.updateUserProfile = async (req, res, next) => {
     );
 
     if (!updated) {
-      return next(new AppError("User profile not found.", 404));
+      return next(new AppError('User profile not found.', 404));
     }
 
-     res.status(200).json({
-    success: true,
-    message: "User profile updated successfully.",updated
-  });
+    res.status(200).json({
+      success: true,
+      message: 'User profile updated successfully.',
+      updated,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-
 exports.uploadProfilePicture = async (req, res, next) => {
   try {
     const _id = req.user._id;
     if (!req.file) {
-        return next(new AppError("No file uploaded.", 400));
+      return next(new AppError('No file uploaded.', 400));
     }
 
-    const imageUrl = await uploadImage(req.file.buffer, _id, req.file.originalname);
+    const imageUrl = await uploadImage(
+      req.file.buffer,
+      _id,
+      req.file.originalname
+    );
 
     const profile = await User.findOneAndUpdate(
       { _id },
@@ -596,48 +538,52 @@ exports.uploadProfilePicture = async (req, res, next) => {
       { new: true, upsert: true }
     );
 
-      res.status(200).json({
-    success: true,
-    message: "Profile image uploaded successfully.",profile
-  });
+    res.status(200).json({
+      success: true,
+      message: 'Profile image uploaded successfully.',
+      profile,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-
 exports.downloadImage = async (req, res, next) => {
   try {
     const userId = req.user._id;
     if (!userId) {
-    return next(new AppError("User ID is required.", 400));
+      return next(new AppError('User ID is required.', 400));
     }
 
-    const extensions = [".jpg", ".jpeg", ".png", ".webp"];
+    const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
     let foundKey = null;
 
     for (const ext of extensions) {
       const key = `user/profilepics/${userId}${ext}`;
       try {
-        await s3.headObject({ Bucket: "norvorcrm", Key: key }).promise();
+        await s3.headObject({ Bucket: 'norvorcrm', Key: key }).promise();
         foundKey = key;
         break;
-      } catch (_) {}
+      } catch (err) {
+        console.error('error :', err);
+      }
     }
 
     if (!foundKey) {
-      return next(new AppError("Image not found.", 404));
+      return next(new AppError('Image not found.', 404));
     }
 
-    const stream = s3.getObject({ Bucket: "norvorcrm", Key: foundKey }).createReadStream();
-    res.setHeader("Content-Type", "image/jpeg");
+    const stream = s3
+      .getObject({ Bucket: 'norvorcrm', Key: foundKey })
+      .createReadStream();
+    res.setHeader('Content-Type', 'image/jpeg');
     stream.pipe(res);
   } catch (err) {
-    console.error("Error downloading image:", err);
+    console.error('Error downloading image:', err);
     res.status(500).json({
-    success: true,
-    message: "Failed to download image.",profile
-  });
+      success: true,
+      message: 'Failed to download image.',
+    });
   }
 };
 
@@ -648,12 +594,12 @@ exports.changePassword = async (req, res, next) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return next(new AppError("User not found.", 404));
+      return next(new AppError('User not found.', 404));
     }
 
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
-      return next(new AppError("Current password is incorrect.", 400));
+      return next(new AppError('Current password is incorrect.', 400));
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -664,7 +610,7 @@ exports.changePassword = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: "Password changed successfully.",
+      message: 'Password changed successfully.',
     });
   } catch (error) {
     next(error);
@@ -680,15 +626,15 @@ exports.updateRecoveryEmail = async (req, res, next) => {
       userId,
       { $set: { recoveryEmail } },
       { new: true }
-    ).select("-password");
+    ).select('-password');
 
     if (!user) {
-      return next(new AppError("User not found.", 404));
+      return next(new AppError('User not found.', 404));
     }
 
     return res.status(200).json({
       success: true,
-      message: "Recovery email updated successfully.",
+      message: 'Recovery email updated successfully.',
       user,
     });
   } catch (err) {
