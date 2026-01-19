@@ -153,10 +153,10 @@ router.post('/login', validateRequest(loginValidator), loginUser);
  *           schema:
  *             type: object
  *             required:
- *               - verifyToken
+ *               - tempToken
  *               - otp
  *             properties:
- *               verifyToken:
+ *               tempToken:
  *                 type: string
  *                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..........
  *               otp:
@@ -319,9 +319,9 @@ router.post(
  *           schema:
  *             type: object
  *             required:
- *               - verifyToken
+ *               - tempToken
  *             properties:
- *               verifyToken:
+ *               tempToken:
  *                 type: string
  *     responses:
  *       200:
