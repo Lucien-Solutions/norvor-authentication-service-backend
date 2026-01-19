@@ -30,7 +30,7 @@ exports.loginValidator = Joi.object({
   password: Joi.string().required(),
 });
 exports.verifyLoginOtpValidator = Joi.object({
-  verifyToken: Joi.string().required(),
+  tempToken: Joi.string().required(),
   otp: Joi.string().required(),
 });
 
@@ -43,7 +43,7 @@ exports.requestPasswordResetValidator = Joi.object({
 });
 
 exports.resendOtpValidator = Joi.object({
-  verifyToken: Joi.string().required(),
+  tempToken: Joi.string().required(),
 });
 
 exports.requestEmailVerficationValidator = Joi.object({

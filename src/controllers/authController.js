@@ -131,7 +131,7 @@ exports.loginUser = async (req, res, next) => {
     user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    const verifyToken = jwt.sign(
+    const tempToken = jwt.sign(
       {
         userId: user._id,
         type: 'TEMP',
@@ -148,7 +148,7 @@ exports.loginUser = async (req, res, next) => {
 
     res.status(200).json({
       message: 'OTP sent to your email successfully.',
-      verifyToken,
+      tempToken,
     });
   } catch (err) {
     next(err);
@@ -157,11 +157,11 @@ exports.loginUser = async (req, res, next) => {
 
 exports.verifyLoginOtp = async (req, res, next) => {
   try {
-    const { verifyToken, otp } = req.body;
+    const { tempToken, otp } = req.body;
 
     let decoded;
     try {
-      decoded = jwt.verify(verifyToken, process.env.ACCESS_TOKEN_SECRET);
+      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
     } catch (err) {
       console.error('error :', err);
       throw new AppError('Invalid or expired temp token', 401);
@@ -324,14 +324,14 @@ exports.logoutUser = async (req, res) => {
 
 exports.resendOTP = async (req, res, next) => {
   try {
-    const { verifyToken } = req.body;
+    const { tempToken } = req.body;
 
     let decoded;
     try {
-      decoded = jwt.verify(verifyToken, process.env.ACCESS_TOKEN_SECRET);
+      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
     } catch (err) {
       console.error('error :', err);
-      return next(new AppError('Invalid or expired verifyToken', 401));
+      return next(new AppError('Invalid or expired tempToken', 401));
     }
 
     const user = await User.findById(decoded.userId);
