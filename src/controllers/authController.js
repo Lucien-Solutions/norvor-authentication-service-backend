@@ -9,7 +9,7 @@ const { uploadImage, s3 } = require('../utils/s3Upload');
 const {
   getPasswordResetOTPTemplate,
   emailVerificationTemplate,
-  getVerifyOTPTemplate,
+  // getVerifyOTPTemplate,
 } = require('../utils/emailTemplates');
 
 const generateOtp = () => {
@@ -57,9 +57,9 @@ exports.registerUser = async (req, res, next) => {
     const newUser = new User(newUserData);
     await newUser.save();
 
-    const token = generateVerificationToken(newUser._id);
+    // const token = generateVerificationToken(newUser._id);
 
-    const link = `${process.env.CONFIRM_EMAIL_URL}?token=${token}`;
+    // const link = `${process.env.CONFIRM_EMAIL_URL}?token=${token}`;
 
     // await sendEmail({
     //   to: newUser.email,
