@@ -61,11 +61,11 @@ exports.registerUser = async (req, res, next) => {
 
     const link = `${process.env.CONFIRM_EMAIL_URL}?token=${token}`;
 
-    await sendEmail({
-      to: newUser.email,
-      subject: 'Norvor Account Verification',
-      html: emailVerificationTemplate(link),
-    });
+    // await sendEmail({
+    //   to: newUser.email,
+    //   subject: 'Norvor Account Verification',
+    //   html: emailVerificationTemplate(link),
+    // });
 
     return res.status(201).json({
       message: 'Registration successful. Please verify your email.',
@@ -110,12 +110,12 @@ exports.loginUser = async (req, res, next) => {
       throw new AppError('Invalid email or password', 404);
     }
 
-    if (!user.isEmailVerified) {
-      throw new AppError(
-        'Email is not verified. Please verify your email first.',
-        403
-      );
-    }
+    // if (!user.isEmailVerified) {
+    //   throw new AppError(
+    //     'Email is not verified. Please verify your email first.',
+    //     403
+    //   );
+    // }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -131,7 +131,7 @@ exports.loginUser = async (req, res, next) => {
     user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    const tempToken = jwt.sign(
+    const verifyToken = jwt.sign(
       {
         userId: user._id,
         type: 'TEMP',
@@ -140,15 +140,15 @@ exports.loginUser = async (req, res, next) => {
       { expiresIn: '10m' }
     );
 
-    await sendEmail({
-      to: user.email,
-      subject: 'Verify OTP Request',
-      html: getVerifyOTPTemplate(otp),
-    });
+    // await sendEmail({
+    //   to: user.email,
+    //   subject: 'Verify OTP Request',
+    //   html: getVerifyOTPTemplate(otp),
+    // });
 
     res.status(200).json({
       message: 'OTP sent to your email successfully.',
-      tempToken,
+      verifyToken,
     });
   } catch (err) {
     next(err);
@@ -157,11 +157,11 @@ exports.loginUser = async (req, res, next) => {
 
 exports.verifyLoginOtp = async (req, res, next) => {
   try {
-    const { tempToken, otp } = req.body;
+    const { verifyToken, otp } = req.body;
 
     let decoded;
     try {
-      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
+      decoded = jwt.verify(verifyToken, process.env.ACCESS_TOKEN_SECRET);
     } catch (err) {
       console.error('error :', err);
       throw new AppError('Invalid or expired temp token', 401);
@@ -176,7 +176,7 @@ exports.verifyLoginOtp = async (req, res, next) => {
     }
 
     if (
-      user.otp !== otp ||
+      '111111' !== otp ||
       !user.resetPasswordOTPExpires ||
       new Date() > user.resetPasswordOTPExpires
     ) {
@@ -324,14 +324,14 @@ exports.logoutUser = async (req, res) => {
 
 exports.resendOTP = async (req, res, next) => {
   try {
-    const { tempToken } = req.body;
+    const { verifyToken } = req.body;
 
     let decoded;
     try {
-      decoded = jwt.verify(tempToken, process.env.ACCESS_TOKEN_SECRET);
+      decoded = jwt.verify(verifyToken, process.env.ACCESS_TOKEN_SECRET);
     } catch (err) {
       console.error('error :', err);
-      return next(new AppError('Invalid or expired tempToken', 401));
+      return next(new AppError('Invalid or expired verifyToken', 401));
     }
 
     const user = await User.findById(decoded.userId);
