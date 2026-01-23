@@ -9,7 +9,7 @@ const { uploadImage, s3 } = require('../utils/s3Upload');
 const {
   getPasswordResetOTPTemplate,
   emailVerificationTemplate,
-  // getVerifyOTPTemplate,
+  getVerifyOTPTemplate,
 } = require('../utils/emailTemplates');
 
 const generateOtp = () => {
@@ -57,15 +57,15 @@ exports.registerUser = async (req, res, next) => {
     const newUser = new User(newUserData);
     await newUser.save();
 
-    // const token = generateVerificationToken(newUser._id);
+    const token = generateVerificationToken(newUser._id);
 
-    // const link = `${process.env.CONFIRM_EMAIL_URL}?token=${token}`;
+    const link = `${process.env.CONFIRM_EMAIL_URL}?token=${token}`;
 
-    // await sendEmail({
-    //   to: newUser.email,
-    //   subject: 'Norvor Account Verification',
-    //   html: emailVerificationTemplate(link),
-    // });
+    await sendEmail({
+      to: newUser.email,
+      subject: 'Norvor Account Verification',
+      html: emailVerificationTemplate(link),
+    });
 
     return res.status(201).json({
       message: 'Registration successful. Please verify your email.',
@@ -110,21 +110,21 @@ exports.loginUser = async (req, res, next) => {
       throw new AppError('Invalid email or password', 404);
     }
 
-    // if (!user.isEmailVerified) {
-    //   throw new AppError(
-    //     'Email is not verified. Please verify your email first.',
-    //     403
-    //   );
-    // }
+    if (!user.isEmailVerified) {
+      throw new AppError(
+        'Email is not verified. Please verify your email first.',
+        403
+      );
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw new AppError('Invalid email or password', 401);
     }
 
-    // if (user.status !== 'active') {
-    //   throw new AppError('User account is inactive. Contact support.', 403);
-    // }
+    if (user.status !== 'active') {
+      throw new AppError('User account is inactive. Contact support.', 403);
+    }
 
     const otp = generateOtp();
     user.otp = otp;
@@ -140,11 +140,11 @@ exports.loginUser = async (req, res, next) => {
       { expiresIn: '10m' }
     );
 
-    // await sendEmail({
-    //   to: user.email,
-    //   subject: 'Verify OTP Request',
-    //   html: getVerifyOTPTemplate(otp),
-    // });
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify OTP Request',
+      html: getVerifyOTPTemplate(otp),
+    });
 
     res.status(200).json({
       message: 'OTP sent to your email successfully.',
@@ -176,7 +176,7 @@ exports.verifyLoginOtp = async (req, res, next) => {
     }
 
     if (
-      '111111' !== otp ||
+      user.otp !== otp ||
       !user.resetPasswordOTPExpires ||
       new Date() > user.resetPasswordOTPExpires
     ) {
