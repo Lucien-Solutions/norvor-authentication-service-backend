@@ -122,9 +122,9 @@ exports.loginUser = async (req, res, next) => {
       throw new AppError('Invalid email or password', 401);
     }
 
-    if (user.status !== 'active') {
-      throw new AppError('User account is inactive. Contact support.', 403);
-    }
+    // if (user.status !== 'active') {
+    //   throw new AppError('User account is inactive. Contact support.', 403);
+    // }
 
     const otp = generateOtp();
     user.otp = otp;
